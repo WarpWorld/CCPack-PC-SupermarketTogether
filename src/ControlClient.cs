@@ -71,7 +71,6 @@ namespace BepinControl
                 //make sure the game is in focus otherwise don't let effects trigger
                 if (!TestMod.isFocused) return false;
 
-
             }
             catch (Exception e)
             {
@@ -149,6 +148,12 @@ namespace BepinControl
             {
                 TimedThread.addTime(200);
                 paused = true;
+            }
+            else if (paused)
+            {
+                paused = false;
+                TimedThread.unPause();
+                TimedThread.tickTime(200);
             }
             else
             {

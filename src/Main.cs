@@ -216,7 +216,6 @@ namespace BepinControl
         [HarmonyPrefix]
         static void RunEffects()
         {
-
             while (ActionQueue.Count > 0)
             {
                 Action action = ActionQueue.Dequeue();
@@ -233,7 +232,6 @@ namespace BepinControl
             }
 
         }
-
 
         [HarmonyPatch(typeof(EventSystem), "OnApplicationFocus")]
         public static class EventSystem_OnApplicationFocus_Patch

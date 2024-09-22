@@ -1,19 +1,10 @@
-﻿using DG.Tweening;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reflection.Emit;
-using System.Threading;
-using System.Xml.Linq;
 using UnityEngine;
-using UnityEngine.UI;
-using static System.Collections.Specialized.BitVector32;
-using static System.Net.Mime.MediaTypeNames;
-using static UnityEngine.EventSystems.EventTrigger;
-using static UnityEngine.GraphicsBuffer;
-using JetBrains.Annotations;
 using MyBox;
 using Mirror;
+using HutongGames.PlayMaker;
 
 
 namespace BepinControl
@@ -147,6 +138,7 @@ namespace BepinControl
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
+
         public static CrowdResponse Give1FP(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
@@ -154,18 +146,11 @@ namespace BepinControl
             GameData gd = GameData.Instance;
             try
             {
-                try
-                {
                     TestMod.ActionQueue.Enqueue(() =>
                     {
                         gd.gameFranchisePoints = gd.gameFranchisePoints + 1;
                         gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
                     });
-                }
-                catch (Exception e)
-                {
-
-                }
             }
             catch (Exception e)
             {
