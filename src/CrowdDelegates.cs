@@ -5,6 +5,12 @@ using UnityEngine;
 using MyBox;
 using Mirror;
 using HutongGames.PlayMaker;
+using System.Runtime.Remoting.Channels;
+using HighlightPlus;
+using UnityEngine.UI;
+using HutongGames.PlayMaker.Actions;
+using HeathenEngineering.SteamworksIntegration;
+using UnityEngine.Localization.SmartFormat.Utilities;
 
 
 namespace BepinControl
@@ -139,6 +145,64 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
+        public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            NPC_Manager NPC = NPC_Manager.Instance;
+            GameData gd = GameData.Instance;
+            try
+            {
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    NPC.maxEmployees++;
+                    NPC.UpdateEmployeesNumberInBlackboard();
+                });
+            }
+            catch (Exception e)
+            {
+
+            }
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+        public static CrowdResponse GiveItem(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            ManagerBlackboard NPC = GameObject.FindFirstObjectByType<ManagerBlackboard>();
+            int give = 0;
+            string[] enteredText = req.code.Split('_');
+            int item2 = 0;
+            Transform item3 = null;
+            if(enteredText.Length == 2)
+            {
+                try
+                {
+                    give = int.Parse(enteredText[1]);
+                }
+                catch
+                {
+
+                }
+            }
+            else
+            {
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE);
+            }
+            try
+            {
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f) ;
+                });
+            }
+            catch (Exception e)
+            {
+
+            }
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
         public static CrowdResponse Give1FP(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;

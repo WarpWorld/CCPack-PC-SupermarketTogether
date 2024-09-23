@@ -61,6 +61,8 @@ namespace BepinControl
                 {"money100", CrowdDelegates.GiveCash100 },
                 {"money1000", CrowdDelegates.GiveCash1000 },
                 {"give1fp", CrowdDelegates.Give1FP },
+                {"give_0", CrowdDelegates.GiveItem },
+                {"give_1", CrowdDelegates.GiveItem },
             };
         }
 
