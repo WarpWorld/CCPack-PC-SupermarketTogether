@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
-using MyBox;
 using Mirror;
 using HutongGames.PlayMaker;
 using System.Runtime.Remoting.Channels;
@@ -44,18 +43,6 @@ namespace BepinControl
     {
         public static System.Random rnd = new System.Random();
         public static int maxBoxCount = 100;
-        public enum Language
-        {
-            English = 0,
-            French = 1,
-            German = 2,
-            Italian = 3,
-            Spanish = 4,
-            Portugal = 5,
-            Brazil = 6,
-            Netherlands = 7,
-            Turkey = 8
-        }
 
         public static CrowdResponse TurnOnLights(ControlClient client, CrowdRequest req)
         {
@@ -64,8 +51,6 @@ namespace BepinControl
             GameData gd = GameData.Instance;
             try
             {
-                try
-                {
                     TestMod.ActionQueue.Enqueue(() =>
                     {
                         foreach (Transform item in gd.lightsOBJ.transform)
@@ -75,11 +60,6 @@ namespace BepinControl
                             item.transform.Find("Light_2").gameObject.SetActive(value: true);
                         }
                     });
-                }
-                catch (Exception e)
-                {
-
-                }
             }
             catch (Exception e)
             {
@@ -90,53 +70,37 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
-        public static CrowdResponse GiveCash100(ControlClient client, CrowdRequest req)
+        public static CrowdResponse AlterFunds(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
-            GameData gd = GameData.Instance;
+            string[] Amount = req.code.Split('_');
+            GameData GD = GameData.Instance;
+            int Money = 0;
+            if(Amount.Length == 2)
+            {
+                Money = int.Parse(Amount[1]);
+            }
+            if (Amount[0].StartsWith("take") && GD.gameFunds < Money) status = CrowdResponse.Status.STATUS_RETRY;
+
             try
             {
-                try
+                if (Amount[0].StartsWith("give"))
                 {
                     TestMod.ActionQueue.Enqueue(() =>
                     {
-                        gd.CmdAlterFunds(100.0f);
+                        GD.CmdAlterFundsWithoutExperience(Money);
                     });
                 }
-                catch (Exception e)
-                {
-
-                }
-            }
-            catch (Exception e)
-            {
-                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
-                status = CrowdResponse.Status.STATUS_RETRY;
-            }
-
-            return new CrowdResponse(req.GetReqID(), status, message);
-        }
-        public static CrowdResponse GiveCash1000(ControlClient client, CrowdRequest req)
-        {
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            GameData gd = GameData.Instance;
-            try
-            {
-                try
+                if (Amount[0].StartsWith("take"))
                 {
                     TestMod.ActionQueue.Enqueue(() =>
                     {
-                        gd.CmdAlterFunds(1000.0f);
+                        GD.CmdAlterFundsWithoutExperience(-Money);
                     });
                 }
-                catch (Exception e)
-                {
-
-                }
             }
-            catch (Exception e)
+            catch(Exception e)
             {
                 TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
                 status = CrowdResponse.Status.STATUS_RETRY;
@@ -153,11 +117,15 @@ namespace BepinControl
             GameData gd = GameData.Instance;
             try
             {
-                TestMod.ActionQueue.Enqueue(() =>
+                if (NPC.maxEmployees == NPC.NPCsEmployeesArray.Length) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Too many Employees");
+                else
                 {
-                    NPC.maxEmployees++;
-                    NPC.UpdateEmployeesNumberInBlackboard();
-                });
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        NPC.maxEmployees++;
+                        NPC.UpdateEmployeesNumberInBlackboard();
+                    });
+                }
             }
             catch (Exception e)
             {
@@ -173,8 +141,6 @@ namespace BepinControl
             ManagerBlackboard NPC = GameObject.FindFirstObjectByType<ManagerBlackboard>();
             int give = 0;
             string[] enteredText = req.code.Split('_');
-            int item2 = 0;
-            Transform item3 = null;
             if(enteredText.Length == 2)
             {
                 try
@@ -201,6 +167,69 @@ namespace BepinControl
             {
 
             }
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+        public static CrowdResponse OpenSuper(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            GameData gd = GameData.Instance;
+            try
+            {
+                if (gd.isSupermarketOpen == true) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Store Already Open");
+                else
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        gd.isSupermarketOpen = true;
+                        gd.NetworkisSupermarketOpen = true;
+                        gd.CmdOpenSupermarket();
+                    });
+                }
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+        public static CrowdResponse ChangeSuperName(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            NetworkSpawner NS = NetworkSpawner.FindFirstObjectByType<NetworkSpawner>();
+            string[] enteredText = req.code.Split('_');
+            int amount = 0;
+            string newName = null;
+            try
+            {
+                amount = int.Parse(enteredText[1]);
+                switch (amount)
+                {
+                    case 1: newName = "CrowdControlStore"; break;
+                    case 2: newName = "Streamer Megastore"; break;
+                    case 3: newName = "WarpWorld Store"; break;
+                }
+            }
+            catch
+            {
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "WHERES THE MONEY");
+            }
+            try
+            {
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    NS.CmdSetSupermarketText(newName);
+                });
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
             return new CrowdResponse(req.GetReqID(), status, message);
         }
         public static CrowdResponse Give1FP(ControlClient client, CrowdRequest req)

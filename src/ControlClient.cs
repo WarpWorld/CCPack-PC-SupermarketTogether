@@ -20,7 +20,7 @@
  * USA
  */
 
-using MyBox;
+
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -58,11 +58,51 @@ namespace BepinControl
             {
                 //when an effect comes in with the code it will call the paired function
                 {"lighton", CrowdDelegates.TurnOnLights },
-                {"money100", CrowdDelegates.GiveCash100 },
-                {"money1000", CrowdDelegates.GiveCash1000 },
+                {"givemoney_100", CrowdDelegates.AlterFunds },
+                {"givemoney_1000", CrowdDelegates.AlterFunds },
+                {"givemoney_10000", CrowdDelegates.AlterFunds },
+                {"takemoney_100", CrowdDelegates.AlterFunds },
+                {"takemoney_1000", CrowdDelegates.AlterFunds },
+                {"takemoney_10000", CrowdDelegates.AlterFunds },
+                {"open_super", CrowdDelegates.OpenSuper },
+                {"storename_1", CrowdDelegates.ChangeSuperName },
+                {"storename_2", CrowdDelegates.ChangeSuperName },
+                {"storename_3", CrowdDelegates.ChangeSuperName },
                 {"give1fp", CrowdDelegates.Give1FP },
                 {"give_0", CrowdDelegates.GiveItem },
                 {"give_1", CrowdDelegates.GiveItem },
+                {"give_2", CrowdDelegates.GiveItem },
+                {"give_3", CrowdDelegates.GiveItem },
+                {"give_4", CrowdDelegates.GiveItem },
+                {"give_5", CrowdDelegates.GiveItem },
+                {"give_6", CrowdDelegates.GiveItem },
+                {"give_7", CrowdDelegates.GiveItem },
+                {"give_8", CrowdDelegates.GiveItem },
+                {"give_9", CrowdDelegates.GiveItem },
+                {"give_10", CrowdDelegates.GiveItem },
+                {"give_11", CrowdDelegates.GiveItem },
+                {"give_12", CrowdDelegates.GiveItem },
+                {"give_13", CrowdDelegates.GiveItem },
+                {"give_43", CrowdDelegates.GiveItem },
+                {"give_44", CrowdDelegates.GiveItem },
+                {"give_45", CrowdDelegates.GiveItem },
+                {"give_46", CrowdDelegates.GiveItem },
+                {"give_47", CrowdDelegates.GiveItem },
+                {"give_48", CrowdDelegates.GiveItem },
+                {"give_61", CrowdDelegates.GiveItem },
+                {"give_62", CrowdDelegates.GiveItem },
+                {"give_63", CrowdDelegates.GiveItem },
+                {"give_64", CrowdDelegates.GiveItem },
+                {"give_65", CrowdDelegates.GiveItem },
+                {"give_66", CrowdDelegates.GiveItem },
+                {"give_67", CrowdDelegates.GiveItem },
+                {"give_140", CrowdDelegates.GiveItem },
+                {"give_141", CrowdDelegates.GiveItem },
+                {"give_142", CrowdDelegates.GiveItem },
+                {"give_143", CrowdDelegates.GiveItem },
+                {"give_144", CrowdDelegates.GiveItem },
+                {"give_145", CrowdDelegates.GiveItem },
+                {"spawn_employee", CrowdDelegates.GiveExtraEmployee },
             };
         }
 
@@ -72,7 +112,8 @@ namespace BepinControl
             {
                 //make sure the game is in focus otherwise don't let effects trigger
                 if (!TestMod.isFocused) return false;
-
+                var player = GameObject.Find("LocalGamePlayer");
+                if (player == null) return false;
             }
             catch (Exception e)
             {
