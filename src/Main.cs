@@ -1,32 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using UnityEngine;
-using UnityEngine.Assertions;
-using UnityEngine.Assertions.Must;
-using UnityEngine.SceneManagement;
-using Random = UnityEngine.Random;
-using System.Collections;
-using System.Security.AccessControl;
-using BepInEx.Configuration;
-using System.Reflection;
-using static System.Net.Mime.MediaTypeNames;
 using System.Threading;
-using BepinControl;
-using System.Runtime.InteropServices;
-using System.Runtime.ConstrainedExecution;
-using System.Security.Cryptography;
-using TMPro;
 using UnityEngine.EventSystems;
-using UnityEngine.Rendering;
+using System.Reflection;
+using TMPro;
 
 
 
@@ -47,11 +28,12 @@ namespace BepinControl
         internal static TestMod Instance = null;
         private ControlClient client = null;
         public static bool isFocused = true;
+        internal static bool isHost = false;
 
         public static int CurrentLanguage = 0;
         public static bool hasPrintedItems = false;
 
-        public static int OrgLanguage = 0; 
+        public static int OrgLanguage = 0;
         public static int NewLanguage = 0;
 
 
@@ -98,12 +80,13 @@ namespace BepinControl
         [HarmonyPrefix]
         static void RunEffects()
         {
-            foreach(Transform item in ManagerBlackboard.FindFirstObjectByType<ManagerBlackboard>(FindObjectsInactive.Include).shopItemsParent.transform) {
+            foreach (Transform item in ManagerBlackboard.FindFirstObjectByType<ManagerBlackboard>(FindObjectsInactive.Include).shopItemsParent.transform)
+            {
                 int productID = item.GetComponent<Data_Product>().productID;
                 int productMax = item.GetComponent<Data_Product>().maxItemsPerBox;
-                TestMod.mls.LogInfo("Product ID: " + productID + ", Max Per Box: " + productMax); 
+                TestMod.mls.LogInfo("Product ID: " + productID + ", Max Per Box: " + productMax);
             }
-                
+
             while (ActionQueue.Count > 0)
             {
                 Action action = ActionQueue.Dequeue();
@@ -120,7 +103,6 @@ namespace BepinControl
             }
 
         }
-
         [HarmonyPatch(typeof(EventSystem), "OnApplicationFocus")]
         public static class EventSystem_OnApplicationFocus_Patch
         {
@@ -129,7 +111,5 @@ namespace BepinControl
                 isFocused = hasFocus;
             }
         }
-
     }
-
 }
