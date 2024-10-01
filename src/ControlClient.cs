@@ -103,6 +103,8 @@ namespace BepinControl
                 {"give_144", CrowdDelegates.GiveItem },
                 {"give_145", CrowdDelegates.GiveItem },
                 {"spawn_employee", CrowdDelegates.GiveExtraEmployee },
+                {"spawn_customer", CrowdDelegates.SpawnCustomer },
+                {"complain_filth", CrowdDelegates.ComplainAboutFilth },
             };
         }
 
