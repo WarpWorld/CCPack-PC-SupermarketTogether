@@ -1,8 +1,4 @@
-﻿using System;
-using System.Net.Sockets;
-using System.Text;
-using Newtonsoft.Json;
-
+﻿
 namespace BepinControl
 {
     public class TimedResponse : CrowdResponse

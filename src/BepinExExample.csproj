@@ -40,15 +40,6 @@
     <Reference Include="BepInEx">
       <HintPath>resources\BepInEx.dll</HintPath>
     </Reference>
-    <Reference Include="DOTween">
-      <HintPath>resources\DOTween.dll</HintPath>
-    </Reference>
-    <Reference Include="Heathen.Steamworks">
-      <HintPath>resources\Heathen.Steamworks.dll</HintPath>
-    </Reference>
-    <Reference Include="LeanPool">
-      <HintPath>resources\LeanPool.dll</HintPath>
-    </Reference>
     <Reference Include="Mirror">
       <HintPath>resources\Mirror.dll</HintPath>
     </Reference>
