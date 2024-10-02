@@ -10,7 +10,7 @@ using UnityEngine.UI;
 using HutongGames.PlayMaker.Actions;
 using HeathenEngineering.SteamworksIntegration;
 using UnityEngine.Localization.SmartFormat.Utilities;
-
+using UnityEngine.AI;
 
 namespace BepinControl
 {
@@ -203,6 +203,19 @@ namespace BepinControl
             string[] enteredText = req.code.Split('_');
             int amount = 0;
             string newName = null;
+
+
+            //PlayMakerFSM playMakerFSM = PlayMakerFSM.FindFirstObjectByType<PlayMakerFSM>();
+
+  
+
+
+           // this.chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
+            //this.chatFSM.FsmVariables.GetFsmString("Message").Value = value;
+            //this.chatFSM.SendEvent("Send_Data");
+
+
+
             try
             {
                 amount = int.Parse(enteredText[1]);
@@ -222,6 +235,17 @@ namespace BepinControl
                 TestMod.ActionQueue.Enqueue(() =>
                 {
                     NS.CmdSetSupermarketText(newName);
+
+                    NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
+
+                    int networkNPCID = UnityEngine.Random.Range(0, npcManager.NPCsArray.Length - 1);
+
+                    TestMod.SendSpawnCustomer(req.viewer, networkNPCID.ToString());
+
+                    
+
+
+
                 });
             }
             catch (Exception e)
@@ -253,6 +277,21 @@ namespace BepinControl
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
+
+        public static void SendCCMessage(string message)
+        {
+
+            TestMod.ActionQueue.Enqueue(() =>
+            {
+                string value = ("<color=green>CrowdControl:</color> " + message);
+                PlayMakerFSM chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
+                chatFSM.FsmVariables.GetFsmString("Message").Value = value;
+                chatFSM.SendEvent("Send_Data");
+            });
+
+        }
+
+
         public static void setProperty(System.Object a, string prop, System.Object val)
         {
             var f = a.GetType().GetField(prop, BindingFlags.Instance | BindingFlags.NonPublic);

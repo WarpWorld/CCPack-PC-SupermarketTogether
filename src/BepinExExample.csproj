@@ -55,6 +55,9 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
+    <Reference Include="PlayMaker">
+      <HintPath>resources\PlayMaker.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -114,4 +117,12 @@
     <Folder Include="resources\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>xcopy /y "F:\CCPack-PC-SupermarketTogether\src\bin\Debug\CrowdControl.dll" "C:\Users\jakub\AppData\Roaming\CrowdControl-Apps\Mods\SupermarketTogether\BepInEx\plugins\CrowdControl"
+</PostBuildEvent>
+  </PropertyGroup>
 </Project>
