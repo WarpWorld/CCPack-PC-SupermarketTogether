@@ -20,7 +20,13 @@ namespace CrowdControl.Games.Packs.SupermarketTogether
         public override EffectList Effects => new List<Effect>
         {
             new Effect("Turn Lights On", "lighton") { Description = "Toggle Lights On", Category = "Misc"},
-
+            new Effect("Complain about Filth", "complain_filth") { Description = "Customers Complain About Filth", Category = "Misc"},
+            new Effect("Spawn New Customer", "spawn_customer") { Description = "Customers Complain About Filth", Category = "Misc"},
+            new Effect("Spawn Employee", "spawn_employee"){ Description = "Spawns a new Employee if Available", Category = "Misc"},
+            new Effect("Open Supermarket", "open_super"){ Description = "Open the Player Store!", Category = "Misc"},
+            new Effect("Store Name [CrowdControlStore]", "storename_1"){ Description = "Rename the Player Store!", Category = "Misc"},
+            new Effect("Store Name [Streamer Megastore]", "storename_2"){ Description = "Rename the Player Store!", Category = "Misc"},
+            new Effect("Store Name [WarpWorld Store]", "storename_3"){ Description = "Rename the Player Store!", Category = "Misc"},
 
             new Effect("Give $100", "givemoney_100") { Description = "Gives 100 of the Selected Currency", Category = "Money"},
             new Effect("Give $1000", "givemoney_1000"){ Description = "Gives 1000 of the Selected Currency", Category = "Money"},
@@ -31,11 +37,6 @@ namespace CrowdControl.Games.Packs.SupermarketTogether
             new Effect("Take $1000", "takemoney_10000"){ Description = "Takes 10000 of the Selected Currency", Category = "Money"},
 
             new Effect("Give 1 Franchise Point", "give1fp"){ Description = "Gives 1 Franchise Point to the Player(s)", Category = "Stats"},
-            new Effect("Spawn Employee", "spawn_employee"){ Description = "Spawns a new Employee if Available", Category = "Misc"},
-            new Effect("Open Supermarket", "open_super"){ Description = "Open the Player Store!", Category = "Misc"},
-            new Effect("Store Name [CrowdControlStore]", "storename_1"){ Description = "Rename the Player Store!", Category = "Misc"},
-            new Effect("Store Name [Streamer Megastore]", "storename_2"){ Description = "Rename the Player Store!", Category = "Misc"},
-            new Effect("Store Name [WarpWorld Store]", "storename_3"){ Description = "Rename the Player Store!", Category = "Misc"},
 
 
             new Effect("Send Pasta", "give_0"){ Description = "Spawn a box of Pasta for the Player", Category = "Items"},
