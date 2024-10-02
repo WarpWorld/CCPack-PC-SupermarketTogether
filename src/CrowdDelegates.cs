@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Mirror;
-using HutongGames.PlayMaker;
-using System.Runtime.Remoting.Channels;
-using HighlightPlus;
-using UnityEngine.UI;
+using UnityEngine.AI;
 using HutongGames.PlayMaker.Actions;
 using HeathenEngineering.SteamworksIntegration;
 using UnityEngine.Localization.SmartFormat.Utilities;
@@ -43,6 +40,7 @@ namespace BepinControl
     {
         public static System.Random rnd = new System.Random();
         public static int maxBoxCount = 100;
+        public static uint msgid = 0;
 
         public static CrowdResponse TurnOnLights(ControlClient client, CrowdRequest req)
         {
@@ -51,15 +49,15 @@ namespace BepinControl
             GameData gd = GameData.Instance;
             try
             {
-                    TestMod.ActionQueue.Enqueue(() =>
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    foreach (Transform item in gd.lightsOBJ.transform)
                     {
-                        foreach (Transform item in gd.lightsOBJ.transform)
-                        {
-                            item.transform.Find("StreetLight").GetComponent<MeshRenderer>().material = gd.lightsOn;
-                            item.transform.Find("Light_1").gameObject.SetActive(value: true);
-                            item.transform.Find("Light_2").gameObject.SetActive(value: true);
-                        }
-                    });
+                        item.transform.Find("StreetLight").GetComponent<MeshRenderer>().material = gd.lightsOn;
+                        item.transform.Find("Light_1").gameObject.SetActive(value: true);
+                        item.transform.Find("Light_2").gameObject.SetActive(value: true);
+                    }
+                });
             }
             catch (Exception e)
             {
@@ -77,7 +75,7 @@ namespace BepinControl
             string[] Amount = req.code.Split('_');
             GameData GD = GameData.Instance;
             int Money = 0;
-            if(Amount.Length == 2)
+            if (Amount.Length == 2)
             {
                 Money = int.Parse(Amount[1]);
             }
@@ -100,7 +98,7 @@ namespace BepinControl
                     });
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
                 status = CrowdResponse.Status.STATUS_RETRY;
@@ -123,6 +121,7 @@ namespace BepinControl
                     TestMod.ActionQueue.Enqueue(() =>
                     {
                         NPC.maxEmployees++;
+
                         NPC.UpdateEmployeesNumberInBlackboard();
                     });
                 }
@@ -133,6 +132,54 @@ namespace BepinControl
             }
             return new CrowdResponse(req.GetReqID(), status, message);
         }
+        public static CrowdResponse SpawnCustomer(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            GameData gd = GameData.Instance;
+            try
+            {
+                if (!GameData.Instance.isSupermarketOpen) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Store is Closed");
+                else
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+
+                        callFunc(NPC_Manager.Instance, "SpawnCustomerNCP", null);
+                    });
+                }
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+        public static CrowdResponse ComplainAboutFilth(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            int item = UnityEngine.Random.Range(0, 190);
+            NPC_Info NPC = GameObject.FindFirstObjectByType<NPC_Info>();
+            GameData gd = GameData.Instance;
+            float newPrice = UnityEngine.Random.Range(0, 30);
+            if (!gd.isSupermarketOpen) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Supermarket is Closed");
+            else
+                try
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        NPC.ComplainAboutFilth();
+                    });
+                }
+                catch (Exception e)
+                {
+                    TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                    status = CrowdResponse.Status.STATUS_RETRY;
+                }
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
 
         public static CrowdResponse GiveItem(ControlClient client, CrowdRequest req)
         {
@@ -141,7 +188,7 @@ namespace BepinControl
             ManagerBlackboard NPC = GameObject.FindFirstObjectByType<ManagerBlackboard>();
             int give = 0;
             string[] enteredText = req.code.Split('_');
-            if(enteredText.Length == 2)
+            if (enteredText.Length == 2)
             {
                 try
                 {
@@ -160,12 +207,51 @@ namespace BepinControl
             {
                 TestMod.ActionQueue.Enqueue(() =>
                 {
-                    NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f) ;
+                    NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f);
+                    GameCanvas.Instance.CreateCanvasNotification($"{req.viewer} Just Sent in an Item!");
                 });
             }
             catch (Exception e)
             {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+        public static CrowdResponse GiveItemToPlayer(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            PlayerObjectController playerRef = LobbyController.FindFirstObjectByType<LobbyController>().LocalplayerController;
+            ManagerBlackboard MB = GameObject.FindFirstObjectByType<ManagerBlackboard>();
+            int give = 0;
+            string[] enteredText = req.code.Split('_');
+            if (enteredText.Length == 2)
+            {
+                try
+                {
+                    give = int.Parse(enteredText[1]);
+                }
+                catch
+                {
 
+                }
+            }
+            else
+            {
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE);
+            }
+            try
+            {
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    MB.CmdSpawnBoxFromPlayer(playerRef.transform.position, give, 32, 0f);
+                });
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
             }
             return new CrowdResponse(req.GetReqID(), status, message);
         }
@@ -195,6 +281,31 @@ namespace BepinControl
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
+        public static CrowdResponse CloseSuper(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            GameData gd = GameData.Instance;
+            try
+            {
+                if (gd.isSupermarketOpen == false) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Store Already Closed");
+                else
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        gd.isSupermarketOpen = false;
+                        gd.NetworkisSupermarketOpen = false;
+                    });
+                }
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
         public static CrowdResponse ChangeSuperName(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
@@ -207,10 +318,10 @@ namespace BepinControl
 
             //PlayMakerFSM playMakerFSM = PlayMakerFSM.FindFirstObjectByType<PlayMakerFSM>();
 
-  
 
 
-           // this.chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
+
+            // this.chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
             //this.chatFSM.FsmVariables.GetFsmString("Message").Value = value;
             //this.chatFSM.SendEvent("Send_Data");
 
@@ -242,7 +353,7 @@ namespace BepinControl
 
                     TestMod.SendSpawnCustomer(req.viewer, networkNPCID.ToString());
 
-                    
+
 
 
 
@@ -263,11 +374,11 @@ namespace BepinControl
             GameData gd = GameData.Instance;
             try
             {
-                    TestMod.ActionQueue.Enqueue(() =>
-                    {
-                        gd.gameFranchisePoints = gd.gameFranchisePoints + 1;
-                        gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
-                    });
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    gd.gameFranchisePoints = gd.gameFranchisePoints + 1;
+                    gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
+                });
             }
             catch (Exception e)
             {
