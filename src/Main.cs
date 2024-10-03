@@ -604,14 +604,10 @@ namespace BepinControl
                             component2.destination = position2;
 
                             NetworkServer.Spawn(gameObject, (NetworkConnection)null);
-
-
-
                             NetworkIdentity networkIdentity = gameObject.GetComponent<NetworkIdentity>();
 
                             if (networkIdentity == null) return;
                             uint _customerNetID = networkIdentity.netId;
-
 
                             //mls.LogInfo($"NPC {_customerNetID.ToString()}");
                             if (_customerNetID == 0) return;
@@ -815,10 +811,98 @@ namespace BepinControl
 
         public static Queue<Action> ActionQueue = new Queue<Action>();
 
+
+        public static GameObject currentTextObject = null;
+        public static void CreateChatStatusText(string message)
+        {
+
+            //Only the host can enable/disable Twitch chat
+            if (!isHost) return;
+
+
+            if (currentTextObject != null)
+            {
+                UnityEngine.Object.Destroy(currentTextObject);
+            }
+
+            Camera cam = FindObjectOfType<Camera>();
+            if (cam == null) return;
+
+
+            currentTextObject = new GameObject("ChatStatusText");
+            TextMeshPro chatStatusText = currentTextObject.AddComponent<TextMeshPro>();
+
+            chatStatusText.fontSize = 0.05f;
+            chatStatusText.color = new Color(0.5f, 0, 1);
+            chatStatusText.alignment = TextAlignmentOptions.Center;
+            chatStatusText.text = message;
+            chatStatusText.lineSpacing = 1.2f;
+
+
+
+            Vector3 screenCenterPosition = cam.ViewportToWorldPoint(new Vector3(0.5f, 0.6f, 0.15f));
+            currentTextObject.transform.position = screenCenterPosition;
+
+
+            currentTextObject.transform.SetParent(cam.transform, true);
+            currentTextObject.AddComponent<FaceCamera>();
+
+            UnityEngine.Object.Destroy(currentTextObject, 3f);
+        }
+
+        public class FaceCamera : MonoBehaviour
+        {
+            private Camera mainCamera;
+
+            void Start()
+            {
+                mainCamera = Camera.main ?? FindObjectOfType<Camera>();
+
+            }
+
+            void LateUpdate()
+            {
+                if (mainCamera == null) return;
+
+                Vector3 directionToCamera = mainCamera.transform.position - transform.position;
+                directionToCamera.y = 0;
+                directionToCamera.Normalize();
+
+                Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
+                transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
+
+            }
+        }
+
         [HarmonyPatch(typeof(PlayerNetwork), "Update")]
         [HarmonyPrefix]
         static void RunEffects()
         {
+
+
+            if (UnityEngine.Input.GetKeyDown(KeyCode.F6))
+            {
+                isTwitchChatAllowed = !isTwitchChatAllowed;
+                if (isChatConnected)
+                {
+                    DisconnectFromTwitch();
+                    isChatConnected = false;
+                }
+
+                if (isTwitchChatAllowed)
+                {
+                    TestMod.mls.LogInfo("Twitch Chat is enabled.");
+                    CreateChatStatusText("Twitch Chat is enabled.");
+                }
+                else
+                {
+                    TestMod.mls.LogInfo("Twitch Chat is disabled.");
+                    CreateChatStatusText("Twitch Chat is disabled.");
+                }
+
+            }
+
+
             while (ActionQueue.Count > 0)
             {
                 Action action = ActionQueue.Dequeue();
