@@ -1,5 +1,5 @@
 using System;
-using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using BepInEx;
@@ -9,18 +9,12 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using Mirror;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using TMPro;
 using UnityEngine.AI;
 using System.IO;
 using System.Net.Sockets;
-using J4F;
 using System.Linq;
-using System.Reflection;
-using System.Security.Principal;
-using UnityEngine.Localization.Pseudo;
 
 namespace BepinControl
 {
@@ -62,10 +56,13 @@ namespace BepinControl
         private static StreamReader twitchReader;
         private static StreamWriter twitchWriter;
 
-        private static List<string> allowedUsernames = new List<string> { "jaku", "s4turn", "crowdcontrol", "theunknowncod3r" };
-        private static List<string> twitchChannels = new List<string>();
+        private static List<string> allowedUsernames = new() { "jaku", "s4turn", "crowdcontrol", "theunknowncod3r" };
+        private static List<string> twitchChannels = new();
 
+        private static readonly ConcurrentDictionary<int, Action<CrowdResponse.Status>> rspResponders = new();
 
+        public static void AddResponder(int msgID, Action<CrowdResponse.Status> responder) => rspResponders[msgID] = responder;
+        public static void RemoveResponder(int msgID) => rspResponders.TryRemove(msgID, out _);
 
         public static void ConnectToTwitchChat()
         {
@@ -304,7 +301,7 @@ namespace BepinControl
         }
 
 
-        public static void SendSpawnCustomer(string customerName, string _twitchChannel)
+        public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel)
         {
 
             var settings = new JsonSerializerSettings
@@ -319,6 +316,7 @@ namespace BepinControl
                 arg1 = customerName,
                 arg2 = (_twitchChannel != null && _twitchChannel.Length >= 1) ? _twitchChannel : null,
                 tag = MESSAGE_TAG
+                //---- jaku, you would want to add the requestID here to whatever field the other side is expecting
             };
 
             string jsonMessage = JsonConvert.SerializeObject(message, settings);
@@ -638,24 +636,65 @@ namespace BepinControl
             switch (jsonMessage.command)
             {
                 case "VERSION":
+                {
                     //If we are already valid, we don't need to send this again.
                     //This will get set to false when we leave a server
                     if (validVersion) return;
                     bool versionMatched = bool.TryParse(jsonMessage.response, out versionMatched);
 
-                    if (Instance.pendingMessageIDs.Remove(jsonMessage.messageID)) {
+                    if (Instance.pendingMessageIDs.Remove(jsonMessage.messageID))
+                    {
                         versionResponse = true;
-                        if (versionMatched) {
+                        if (versionMatched)
+                        {
                             validVersion = true;
                             mls.LogInfo($"Version Matched! Ready for Effects.");
-                        } else {
+                        }
+                        else
+                        {
                             validVersion = false;
                             mls.LogInfo($"Version Mismatch! Make sure mod version matches.");
                         }
-
                     }
-   
+
                     break;
+                }
+                //---- jaku, put the responding verb type here
+                case "RENAME_THIS":
+                {
+                    //---- jaku, I am assuming the ID is coming in as arg1 and the status message is arg2
+                    //---- you can change this to whatever you need
+                    //---- just bear in mind that currently I'm parsing the number from the string because arg1 is a string
+                    //---- if you change the type of the field you're reading from, you'll need to change the parsing (or not parse it or whatever)
+                    if (!int.TryParse(jsonMessage.arg1, out int msgID))
+                    {
+                        mls.LogWarning($"Invalid message ID: {jsonMessage.arg1}");
+                        break;
+                    }
+
+                    //---- jaku, the status is coming in as a string, the names are the
+                    //---- string names of the values of CrowdResponse.Status
+                    if (!Enum.TryParse(jsonMessage.arg2, out CrowdResponse.Status status))
+                    {
+                        mls.LogWarning($"Invalid status: {jsonMessage.arg2}");
+                        break;
+                    }
+
+                    if (!rspResponders.TryGetValue(msgID, out var responder))
+                    {
+                        mls.LogWarning($"No responder for message ID: {msgID}");
+                        break;
+                    }
+
+                    try { responder(status); }
+                    catch (Exception e)
+                    {
+                        mls.LogWarning($"Error processing response for message ID: {msgID}");
+                        mls.LogError(e);
+                    }
+
+                    break;
+                }
                 // Add other response types here
                 default:
                     mls.LogWarning($"Unknown response command: {jsonMessage.command}");
