@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using UnityEngine;
-using Mirror;
-using UnityEngine.AI;
-
 
 namespace BepinControl
 {
     public delegate CrowdResponse CrowdDelegate(ControlClient client, CrowdRequest req);
-
-
 
     public static class CustomerChatNames
     {
@@ -38,6 +34,8 @@ namespace BepinControl
         public static System.Random rnd = new System.Random();
         public static int maxBoxCount = 100;
         public static uint msgid = 0;
+        
+        public static readonly TimeSpan SERVER_TIMEOUT = TimeSpan.FromSeconds(5);
 
         public static CrowdResponse TurnOnLights(ControlClient client, CrowdRequest req)
         {
@@ -340,25 +338,33 @@ namespace BepinControl
             }
             try
             {
+                //---- jaku, this creates the callback context that should be created
+                //---- before the message is sent out to the server
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
                 TestMod.ActionQueue.Enqueue(() =>
                 {
                     NS.CmdSetSupermarketText(newName);
 
                     if (req.targets != null)
                     {
-
                         if (req.targets[0].service == "twitch")
                         {
                             TestMod.twitchChannel = req.targets[0].name;
-                            TestMod.SendSpawnCustomer(req.viewer, req.targets[0].name);
+                            TestMod.SendSpawnCustomer(req.id, req.viewer, req.targets[0].name);
                         } else
                         {
-                            TestMod.SendSpawnCustomer(req.viewer, "");
+                            TestMod.SendSpawnCustomer(req.id, req.viewer, "");
                         }
                     }
-
-
                 });
+
+                //---- jaku, this is the part that waits for the response from the server
+                //---- DO NOT PUT THIS INSIDE ANYTHING PASSED TO ActionQueue.Enqueue
+                //---- IT COULD EASILY DEADLOCK SOMETHING MAYBE DEPENDING ON THE GAME
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
             }
             catch (Exception e)
             {
@@ -368,6 +374,9 @@ namespace BepinControl
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
+
+
+
         public static CrowdResponse Give1FP(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
