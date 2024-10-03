@@ -17,6 +17,7 @@ using System.Net.Sockets;
 using System.Linq;
 using UnityEngine.Localization.Pseudo;
 using UnityEngine.Playables;
+using Newtonsoft.Json.Linq;
 
 namespace BepinControl
 {
@@ -376,7 +377,6 @@ namespace BepinControl
             Instance.SendChatMessage(jsonMessage);
         }
 
- 
 
         [HarmonyPatch(typeof(PlayerObjectController), "UserCode_RpcReceiveChatMsg__String__String")]
         public static class Patch_UserCode_RpcReceiveChatMsg
@@ -387,11 +387,13 @@ namespace BepinControl
                 try
                 {
 
+
                     if (string.IsNullOrEmpty(message))
                     {
                         return true;
                     }
 
+        
                     if (message.Contains(MESSAGE_TAG))
                     {
 
@@ -400,7 +402,7 @@ namespace BepinControl
                         if (containsJson)
                         {
                             ProcessMessage(message, playerName);
-                            return true;
+                            return false;
                         }
                         
                         return true;
