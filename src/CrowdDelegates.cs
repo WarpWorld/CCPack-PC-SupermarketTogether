@@ -4,10 +4,7 @@ using System.Reflection;
 using UnityEngine;
 using Mirror;
 using UnityEngine.AI;
-using HutongGames.PlayMaker.Actions;
-using HeathenEngineering.SteamworksIntegration;
-using UnityEngine.Localization.SmartFormat.Utilities;
-using UnityEngine.AI;
+
 
 namespace BepinControl
 {
@@ -347,14 +344,18 @@ namespace BepinControl
                 {
                     NS.CmdSetSupermarketText(newName);
 
-                    NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
+                    if (req.targets != null)
+                    {
 
-                    int networkNPCID = UnityEngine.Random.Range(0, npcManager.NPCsArray.Length - 1);
-
-                    TestMod.SendSpawnCustomer(req.viewer, networkNPCID.ToString());
-
-
-
+                        if (req.targets[0].service == "twitch")
+                        {
+                            TestMod.twitchChannel = req.targets[0].name;
+                            TestMod.SendSpawnCustomer(req.viewer, req.targets[0].name);
+                        } else
+                        {
+                            TestMod.SendSpawnCustomer(req.viewer, "");
+                        }
+                    }
 
 
                 });
