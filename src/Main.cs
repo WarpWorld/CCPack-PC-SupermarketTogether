@@ -15,6 +15,7 @@ using UnityEngine.AI;
 using System.IO;
 using System.Net.Sockets;
 using System.Linq;
+using UnityEngine.Localization.Pseudo;
 
 namespace BepinControl
 {
@@ -301,8 +302,10 @@ namespace BepinControl
         }
 
 
-        public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel)
+        public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel = null)
         {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
 
             var settings = new JsonSerializerSettings
             {
@@ -315,12 +318,14 @@ namespace BepinControl
                 command = "SPAWN_CUS",
                 arg1 = customerName,
                 arg2 = (_twitchChannel != null && _twitchChannel.Length >= 1) ? _twitchChannel : null,
-                tag = MESSAGE_TAG
-                //---- jaku, you would want to add the requestID here to whatever field the other side is expecting
+                tag = MESSAGE_TAG,
+                requestID = requestID
             };
 
+
+
             string jsonMessage = JsonConvert.SerializeObject(message, settings);
-            Instance.SendChatMessage(jsonMessage, "CMD");
+            Instance.SendChatMessage(jsonMessage);
         }
 
 
@@ -344,7 +349,7 @@ namespace BepinControl
             };
 
             string jsonMessage = JsonConvert.SerializeObject(versionMessage, settings);
-            Instance.SendChatMessage(jsonMessage, "CMD");
+            Instance.SendChatMessage(jsonMessage);
         }
 
  
@@ -481,6 +486,9 @@ namespace BepinControl
             public string messageID { get; set; }
 
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public int requestID { get; set; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public string tag { get; set; }
 
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -525,19 +533,18 @@ namespace BepinControl
                     mls.LogInfo($"Processing version check for: {playerName} Version: {jsonMessage.version} Matched: {versionMatched}");
 
                     string jsonResponse = JsonConvert.SerializeObject(response, settings);
-                    Instance.SendChatMessage(jsonResponse, "RSP");
+                    Instance.SendChatMessage(jsonResponse);
 
                     
                     break;
                 case "SPAWN_CUS":
 
-
-                    
-
                         string customerName = jsonMessage.arg1;
                         string _twitchChannel = jsonMessage.arg2;
-
-                        if (customerName.Length >= 1)
+                        int requestID = jsonMessage.requestID;
+                        string responseStatus = "STATUS_SUCCESS";
+                        
+                    if (customerName.Length >= 1)
                         {
 
                             if (!isHost) return;
@@ -564,8 +571,9 @@ namespace BepinControl
                                 }
 
                             }
-                          
-                        
+
+                        try
+                        {
                             NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
                             uint customerNetID = (uint)UnityEngine.Random.Range(0, npcManager.NPCsArray.Length - 1);
 
@@ -619,8 +627,27 @@ namespace BepinControl
                                 tag = MESSAGE_TAG
                             };
                             //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
-                            Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings), "BST");
+                            Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
+
+                            
+                        } catch (Exception e)
+                        {
+                            responseStatus = "STATUS_FAILURE";
                         }
+
+
+                        var response_msg = new JsonMessage
+                        {
+                            type = "RSP",
+                            command = "SPAWN_CUS",
+                            requestID = requestID,
+                            response = responseStatus,
+                            tag = MESSAGE_TAG
+                        };
+
+                        Instance.SendChatMessage(JsonConvert.SerializeObject(response_msg, settings));
+
+                    }
                     
 
                     break;
@@ -659,39 +686,38 @@ namespace BepinControl
 
                     break;
                 }
-                //---- jaku, put the responding verb type here
-                case "RENAME_THIS":
+
+                case "SPAWN_CUS":
                 {
-                    //---- jaku, I am assuming the ID is coming in as arg1 and the status message is arg2
-                    //---- you can change this to whatever you need
-                    //---- just bear in mind that currently I'm parsing the number from the string because arg1 is a string
-                    //---- if you change the type of the field you're reading from, you'll need to change the parsing (or not parse it or whatever)
-                    if (!int.TryParse(jsonMessage.arg1, out int msgID))
-                    {
-                        mls.LogWarning($"Invalid message ID: {jsonMessage.arg1}");
-                        break;
-                    }
 
-                    //---- jaku, the status is coming in as a string, the names are the
-                    //---- string names of the values of CrowdResponse.Status
-                    if (!Enum.TryParse(jsonMessage.arg2, out CrowdResponse.Status status))
-                    {
-                        mls.LogWarning($"Invalid status: {jsonMessage.arg2}");
-                        break;
-                    }
 
-                    if (!rspResponders.TryGetValue(msgID, out var responder))
-                    {
-                        mls.LogWarning($"No responder for message ID: {msgID}");
-                        break;
-                    }
+                        if (Instance.pendingMessageIDs.Remove(jsonMessage.requestID.ToString()))
+                        {
+                            if (!int.TryParse(jsonMessage.requestID.ToString(), out int msgID))
+                            {
+                                mls.LogWarning($"Invalid message ID: {jsonMessage.arg1}");
+                                break;
+                            }
 
-                    try { responder(status); }
-                    catch (Exception e)
-                    {
-                        mls.LogWarning($"Error processing response for message ID: {msgID}");
-                        mls.LogError(e);
-                    }
+                            if (!Enum.TryParse(jsonMessage.response, out CrowdResponse.Status status))
+                            {
+                                mls.LogWarning($"Invalid status: {jsonMessage.arg2}");
+                                break;
+                            }
+
+                            if (!rspResponders.TryGetValue(msgID, out var responder))
+                            {
+                                mls.LogWarning($"No responder for message ID: {msgID}");
+                                break;
+                            }
+
+                            try { responder(status); }
+                            catch (Exception e)
+                            {
+                                mls.LogWarning($"Error processing response for message ID: {msgID}");
+                                mls.LogError(e);
+                            }
+                        }
 
                     break;
                 }
@@ -760,10 +786,9 @@ namespace BepinControl
 
 
 
-        private void SendChatMessage(string message, string cmdType)
+        private void SendChatMessage(string message)
         {
 
-           
             if (NetworkClient.isConnected && NetworkClient.connection?.identity != null)
             {
                 var playerController = NetworkClient.connection.identity.GetComponent<PlayerObjectController>();

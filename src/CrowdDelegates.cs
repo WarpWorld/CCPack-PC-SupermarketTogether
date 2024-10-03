@@ -338,8 +338,8 @@ namespace BepinControl
             }
             try
             {
-                //---- jaku, this creates the callback context that should be created
-                //---- before the message is sent out to the server
+                //this creates the callback context that should be created
+                //before the message is sent out to the server
                 TaskCompletionSource<CrowdResponse.Status> tcs = new();
                 TestMod.AddResponder(req.id, s => tcs.SetResult(s));
 
@@ -351,18 +351,17 @@ namespace BepinControl
                     {
                         if (req.targets[0].service == "twitch")
                         {
-                            TestMod.twitchChannel = req.targets[0].name;
                             TestMod.SendSpawnCustomer(req.id, req.viewer, req.targets[0].name);
                         } else
                         {
-                            TestMod.SendSpawnCustomer(req.id, req.viewer, "");
+                            TestMod.SendSpawnCustomer(req.id, req.viewer);
                         }
                     }
                 });
 
-                //---- jaku, this is the part that waits for the response from the server
-                //---- DO NOT PUT THIS INSIDE ANYTHING PASSED TO ActionQueue.Enqueue
-                //---- IT COULD EASILY DEADLOCK SOMETHING MAYBE DEPENDING ON THE GAME
+                //this part that waits for the response from the server
+                //DO NOT PUT THIS INSIDE ANYTHING PASSED TO ActionQueue.Enqueue
+                //IT COULD EASILY DEADLOCK SOMETHING MAYBE DEPENDING ON THE GAME
                 status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
                 TestMod.RemoveResponder(req.id);
             }
