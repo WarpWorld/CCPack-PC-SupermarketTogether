@@ -16,6 +16,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Linq;
 using UnityEngine.Localization.Pseudo;
+using UnityEngine.Playables;
 
 namespace BepinControl
 {
@@ -302,6 +303,29 @@ namespace BepinControl
         }
 
 
+        public static void UpdateFranchisePoints(int requestID, string viewerName)
+        {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
+
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var message = new
+            {
+                type = "CMD",
+                command = "UPDATE_FP",
+                tag = MESSAGE_TAG,
+                requestID = requestID
+            };
+
+            string jsonMessage = JsonConvert.SerializeObject(message, settings);
+            Instance.SendChatMessage(jsonMessage);
+        }
+
+
         public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel = null)
         {
 
@@ -537,6 +561,26 @@ namespace BepinControl
 
                     
                     break;
+                case "UPDATE_FP":
+
+                    GameData gd = GameData.Instance;
+                    // do this on the client and server, then the update only happens on the server
+                    gd.gameFranchisePoints += 1;
+                    gd.NetworkgameFranchisePoints = gd.gameFranchisePoints;
+                    gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
+
+                    if (!isHost) return;
+
+                    var methodInfo = typeof(GameData).GetMethod("RpcAcquireFranchise", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                    if (methodInfo != null)
+                    {
+                        methodInfo.Invoke(GameData.Instance, new object[] { 0 });
+                    }
+
+
+                    break;
+
                 case "SPAWN_CUS":
 
                         string customerName = jsonMessage.arg1;
@@ -767,7 +811,10 @@ namespace BepinControl
 
 
                         break;
-                    // Add other response types here
+
+                    
+
+
                     default:
                         mls.LogWarning($"Unknown response command: {jsonMessage.command}");
                         break;
@@ -818,16 +865,10 @@ namespace BepinControl
 
             //Only the host can enable/disable Twitch chat
             if (!isHost) return;
-
-
-            if (currentTextObject != null)
-            {
-                UnityEngine.Object.Destroy(currentTextObject);
-            }
-
+            if (currentTextObject != null) UnityEngine.Object.Destroy(currentTextObject);
+            
             Camera cam = FindObjectOfType<Camera>();
             if (cam == null) return;
-
 
             currentTextObject = new GameObject("ChatStatusText");
             TextMeshPro chatStatusText = currentTextObject.AddComponent<TextMeshPro>();
@@ -837,8 +878,6 @@ namespace BepinControl
             chatStatusText.alignment = TextAlignmentOptions.Center;
             chatStatusText.text = message;
             chatStatusText.lineSpacing = 1.2f;
-
-
 
             Vector3 screenCenterPosition = cam.ViewportToWorldPoint(new Vector3(0.5f, 0.6f, 0.15f));
             currentTextObject.transform.position = screenCenterPosition;

@@ -122,6 +122,9 @@
   </PropertyGroup>
   <PropertyGroup>
     <PostBuildEvent>xcopy /y "F:\CCPack-PC-SupermarketTogether\src\bin\Debug\CrowdControl.dll" "C:\Users\jakub\AppData\Roaming\CrowdControl-Apps\Mods\SupermarketTogether\BepInEx\plugins\CrowdControl"
+
+
+xcopy /y "F:\CCPack-PC-SupermarketTogether\src\bin\Debug\CrowdControl.dll" "X:\SupermarketTogether\BepInEx\plugins\CrowdControl"
 </PostBuildEvent>
   </PropertyGroup>
 </Project>

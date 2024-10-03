@@ -385,8 +385,12 @@ namespace BepinControl
             {
                 TestMod.ActionQueue.Enqueue(() =>
                 {
-                    gd.gameFranchisePoints = gd.gameFranchisePoints + 1;
-                    gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
+
+                    TestMod.UpdateFranchisePoints(req.id, req.viewer);
+                    //gd.gameFranchisePoints += 1;
+                    //gd.NetworkgameFranchisePoints = gd.gameFranchisePoints;
+                    //gd.gameFranchisePoints += 1;
+                    //gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
                 });
             }
             catch (Exception e)
