@@ -21,7 +21,7 @@ namespace CrowdControl.Games.Packs.SupermarketTogether
         {
             new Effect("Turn Lights On", "lighton") { Description = "Toggle Lights On", Category = "Misc"},
             new Effect("Complain about Filth", "complain_filth") { Description = "Customers Complain About Filth", Category = "Misc"},
-            new Effect("Spawn New Customer", "spawn_customer") { Description = "Customers Complain About Filth", Category = "Misc"},
+            new Effect("Spawn New Customer", "spawn_customer") { Description = "Spawn a customer!", Category = "Misc"},
             new Effect("Spawn Employee", "spawn_employee"){ Description = "Spawns a new Employee if Available", Category = "Misc"},
             new Effect("Open Supermarket", "open_super"){ Description = "Open the Player Store!", Category = "Misc"},
             new Effect("Store Name [CrowdControlStore]", "storename_1"){ Description = "Rename the Player Store!", Category = "Misc"},

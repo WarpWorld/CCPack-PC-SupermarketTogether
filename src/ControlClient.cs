@@ -114,6 +114,7 @@ namespace BepinControl
             {
                 //make sure the game is in focus otherwise don't let effects trigger
                 if (!TestMod.isFocused) return false;
+                if (!TestMod.validVersion && !TestMod.isHost) return false;
                 var player = GameObject.Find("LocalGamePlayer");
                 if (player == null) return false;
             }
