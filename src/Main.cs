@@ -18,6 +18,7 @@ using System.Linq;
 using UnityEngine.Localization.Pseudo;
 using UnityEngine.Playables;
 using Newtonsoft.Json.Linq;
+using static UnityEngine.InputSystem.InputRemoting;
 
 namespace BepinControl
 {
@@ -52,7 +53,8 @@ namespace BepinControl
         private static bool isTwitchChatAllowed = true;
         private const string twitchServer = "irc.chat.twitch.tv";
         private const int twitchPort = 6667;
-        private const string twitchUsername = "justinfan1337";
+        public static string twitchUsername = "justinfan1337";
+        public static string twitchOauth = "";
         public static string twitchChannel = "";
         private static TcpClient twitchTcpClient;
         private static NetworkStream twitchStream;
@@ -79,6 +81,33 @@ namespace BepinControl
 
         public static void StartTwitchChatListener()
         {
+
+            // Twitch oauth ini support incase we want to connect with an authenicated user for something
+            string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "twitchauth.ini");
+            if (File.Exists(filePath))
+            {
+                string[] lines = File.ReadAllLines(filePath);
+
+                foreach (string line in lines)
+                {
+                    if (line.StartsWith("username=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        twitchUsername = line.Split('=')[1].Trim();
+                    }
+                    else if (line.StartsWith("oauth=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        twitchOauth = line.Split('=')[1].Trim();
+                    }
+                }
+
+                if (string.IsNullOrEmpty(twitchUsername) || string.IsNullOrEmpty(twitchOauth))
+                {
+                    twitchUsername = "justinfan1337";
+                    twitchOauth = "";
+                }
+            }
+            
+
             try
             {
                 twitchTcpClient = new TcpClient(twitchServer, twitchPort);
@@ -87,7 +116,9 @@ namespace BepinControl
                 twitchWriter = new StreamWriter(twitchStream);
 
                 // Request membership and tags capabilities from Twitch
-                twitchWriter.WriteLine("CAP REQ :twitch.tv/membership twitch.tv/tags");
+                twitchWriter.WriteLine("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands");
+
+                if (twitchOauth.Length > 0) twitchWriter.WriteLine($"PASS oauth:{twitchOauth}");
 
                 twitchWriter.WriteLine($"NICK {twitchUsername}");
                 twitchWriter.WriteLine($"JOIN #{twitchChannel}");
@@ -95,7 +126,7 @@ namespace BepinControl
 
                 mls.LogInfo($"Connected to Twitch channel: {twitchChannel}");
 
-
+                twitchWriter.Flush();
                 while (true)
                 {
                     if (twitchStream.DataAvailable)
@@ -152,7 +183,7 @@ namespace BepinControl
 
 
                                                 var spawnedObjects = isHost ? NetworkServer.spawned : NetworkClient.spawned;
-                                                List<NetworkIdentity> matchingIdentities = new List<NetworkIdentity>();
+                                                //List<NetworkIdentity> matchingIdentities = new List<NetworkIdentity>();
 
                                                 foreach (var kvp in spawnedObjects)
                                                 {
@@ -348,6 +379,31 @@ namespace BepinControl
             };
 
 
+            string jsonMessage = JsonConvert.SerializeObject(message, settings);
+            Instance.SendChatMessage(jsonMessage);
+        }
+
+
+        public static void JailPlayer(int requestID, string playerName, string viewerName)
+        {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
+
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var message = new
+            {
+                type = "CMD",
+                command = "JAIL_PLAYER",
+                arg1 = playerName,
+                arg2 = viewerName,
+                tag = MESSAGE_TAG,
+                requestID = requestID
+            };
+
 
             string jsonMessage = JsonConvert.SerializeObject(message, settings);
             Instance.SendChatMessage(jsonMessage);
@@ -538,6 +594,9 @@ namespace BepinControl
                 NullValueHandling = NullValueHandling.Ignore
             };
 
+            string responseStatus = "STATUS_SUCCESS";
+            int requestID;
+
             switch (jsonMessage.command)
             {
                 case "VERSION":
@@ -583,12 +642,75 @@ namespace BepinControl
 
                     break;
 
+                case "JAIL_PLAYER":
+                    if (!isHost) return;
+
+                    string jailPlayerName = jsonMessage.arg1;
+                    string jailTwitchViewer = jsonMessage.arg2;
+                    requestID = jsonMessage.requestID;
+
+
+                        responseStatus = "STATUS_FAILURE";
+                        try
+                        {
+
+                        var serverObjects = NetworkServer.spawned;
+                        foreach (var kvp in serverObjects)
+                        {
+                            NetworkIdentity serverIdentity = kvp.Value;
+
+                            if (serverIdentity.gameObject.name.Contains("Player"))
+                            {
+
+                                PlayerObjectController playerInfo = serverIdentity.gameObject.GetComponentInChildren<PlayerObjectController>();
+                                if (playerInfo != null)
+                                {
+                                    if (jailPlayerName.ToLower() == playerInfo.PlayerName.ToLower())
+                                    {
+                                        TestMod.mls.LogInfo("Jail Player " + playerInfo.PlayerName);
+                                        PlayerPermissions playerPermssions = serverIdentity.gameObject.GetComponentInChildren<PlayerPermissions>();
+                                        CrowdDelegates.callFunc(playerPermssions, "RpcJPlayer", 69);
+                                        responseStatus = "STATUS_SUCCESS";
+
+                                        SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!");
+
+
+                                    }
+                                }
+
+
+                            }
+                            
+
+                        }
+
+
+                    }
+                        catch (Exception e)
+                        {
+                            responseStatus = "STATUS_FAILURE";
+                        }
+
+
+                        var jail_response = new JsonMessage
+                        {
+                            type = "RSP",
+                            command = "JAIL_PLAYER",
+                            requestID = requestID,
+                            response = responseStatus,
+                            tag = MESSAGE_TAG
+                        };
+
+                        Instance.SendChatMessage(JsonConvert.SerializeObject(jail_response, settings));
+
+                    break;
+
+
                 case "SPAWN_CUS":
 
                         string customerName = jsonMessage.arg1;
                         string _twitchChannel = jsonMessage.arg2;
-                        int requestID = jsonMessage.requestID;
-                        string responseStatus = "STATUS_SUCCESS";
+                        requestID = jsonMessage.requestID;
                         
                     if (customerName.Length >= 1)
                         {
@@ -678,7 +800,7 @@ namespace BepinControl
                         }
 
 
-                        var response_msg = new JsonMessage
+                        var spawn_response = new JsonMessage
                         {
                             type = "RSP",
                             command = "SPAWN_CUS",
@@ -687,7 +809,7 @@ namespace BepinControl
                             tag = MESSAGE_TAG
                         };
 
-                        Instance.SendChatMessage(JsonConvert.SerializeObject(response_msg, settings));
+                        Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_response, settings));
 
                     }
                     
@@ -698,6 +820,22 @@ namespace BepinControl
                     mls.LogWarning($"Unknown command: {jsonMessage.command}");
                     break;
             }
+        }
+
+
+        public static void SendHudMessage(string message)
+        {
+            GameCanvas.Instance.CreateCanvasNotification($"CC:<color=red>{message}</color>");
+        }
+
+        public static void SendServerAnnouncement(string message)
+        {
+
+            string value = ("<color=green>CrowdControl:</color> " + message);
+            PlayMakerFSM chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
+            chatFSM.FsmVariables.GetFsmString("Message").Value = value;
+            chatFSM.SendEvent("Send_Data");
+
         }
 
         private static void ProcessResponse(JsonMessage jsonMessage, string playerName)
@@ -730,8 +868,8 @@ namespace BepinControl
                 }
 
                 case "SPAWN_CUS":
-                {
-
+                case "JAIL_PLAYER":
+                    {
 
                         if (Instance.pendingMessageIDs.Remove(jsonMessage.requestID.ToString()))
                         {
@@ -1027,7 +1165,39 @@ namespace BepinControl
             }
         }
 
-     
+
+
+        [HarmonyPatch(typeof(NPC_Info), "AuxiliarAnimationPlay")]
+        public class Patch_NPC_Info_AuxiliarAnimationPlay
+        {
+            static void Postfix(NPC_Info __instance, int animationIndex)
+            {
+
+                if (__instance.name.Length >=1 && isChatConnected && !__instance.name.Contains("(Clone)"))
+                {
+                   //possible twitch timeout functionality later?
+                   //mls.LogInfo($"HIT {__instance.name} WITH A BROOOM");
+                }
+                
+            }
+        }
+
+        
+
+        [HarmonyPatch(typeof(GameCanvas), "CreateCanvasNotification")]
+        public class Patch_GameCanvas_CreateCanvasNotification
+        {
+            static bool Prefix(GameCanvas __instance, string hash)
+            {
+                if (!hash.StartsWith("CC:")) return true;
+                hash = hash.Replace("CC:", "");
+                GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(__instance.notificationPrefab, __instance.notificationParentTransform);
+                gameObject.GetComponent<TextMeshProUGUI>().text = hash;
+                gameObject.SetActive(true);
+                return false;
+
+            }
+        }
 
 
         [HarmonyPatch(typeof(NPC_Info), "UserCode_RPCNotificationAboveHead__String__String")]
