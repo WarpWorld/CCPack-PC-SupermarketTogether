@@ -285,7 +285,7 @@ namespace BepinControl
         }
 
         //ChangeSuperName
-        public static CrowdResponse ChangeSuperName2(ControlClient client, CrowdRequest req)
+        public static CrowdResponse ChangeSuperName(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
@@ -316,32 +316,21 @@ namespace BepinControl
                     NS.CmdSetSupermarketText(newName);
 
 
+                  
 
-                    var serverObjects = NetworkServer.spawned;
+                   // TrashSpawn trashSpawn = TrashSpawn.FindFirstObjectByType<TrashSpawn>();
+                    //trashSpawn.OnStartClient();
+                    
 
-                    foreach (var kvp in serverObjects)
+
+                    TrashSpawn trashSpawn = TrashSpawn.FindObjectOfType<TrashSpawn>();
+                    if (trashSpawn != null)
                     {
-                        NetworkIdentity serverIdentity = kvp.Value;
-                        //if (serverIdentity.assetId != 620925214) continue;
-                        //if (serverIdentity.gameObject.name.ToLower() != username.ToLower()) continue;
-                        
-
-                        if (serverIdentity.gameObject.name.Contains("Player"))
-                        {
-
-                            PlayerObjectController playerInfo = serverIdentity.gameObject.GetComponentInChildren<PlayerObjectController>();
-                            if (playerInfo != null) {
-                                TestMod.mls.LogInfo("Jail Player " + playerInfo.PlayerName);
-                                PlayerPermissions playerPermssions = serverIdentity.gameObject.GetComponentInChildren<PlayerPermissions>();
-                                playerPermssions.JPlayer(69);
-                            }
-
-
-                        }
-                        //NPC_Info npcInfo = serverIdentity.gameObject.GetComponentInChildren<NPC_Info>();
-                        //if (npcInfo != null) npcInfo.RPCNotificationAboveHead(chatMessage, "crowdcontrol");
-
+                        TestMod.mls.LogInfo("Spawn some trash?");
+                        trashSpawn.OnStartClient();
                     }
+
+
 
 
 
@@ -358,8 +347,8 @@ namespace BepinControl
         }
 
 
-        //JailPlayer
-        public static CrowdResponse ChangeSuperName(ControlClient client, CrowdRequest req)
+     
+        public static CrowdResponse JailPlayer(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";

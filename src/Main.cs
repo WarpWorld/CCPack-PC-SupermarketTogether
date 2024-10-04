@@ -19,6 +19,8 @@ using UnityEngine.Localization.Pseudo;
 using UnityEngine.Playables;
 using Newtonsoft.Json.Linq;
 using static UnityEngine.InputSystem.InputRemoting;
+using System.Text.RegularExpressions;
+using UnityEngine.Windows;
 
 namespace BepinControl
 {
@@ -63,6 +65,8 @@ namespace BepinControl
 
         private static List<string> allowedUsernames = new() { "jaku", "s4turn", "crowdcontrol", "theunknowncod3r" };
         private static List<string> twitchChannels = new();
+
+
 
         private static readonly ConcurrentDictionary<int, Action<CrowdResponse.Status>> rspResponders = new();
 
@@ -153,6 +157,7 @@ namespace BepinControl
                                         string chatMessage = messageParts[3].Substring(1);
                                         string[] chatParts = chatMessage.Split(new[] { " :" }, 2, StringSplitOptions.None);
                                         chatMessage = chatParts[1];
+                                        chatMessage = Regex.Replace(chatMessage, @"[^A-Za-z0-9!?.<>=/@#$%^&*(){}\[\]\"";:'\\]", "");
 
                                         var badges = ParseBadges(messageParts[0]);
 
@@ -776,8 +781,6 @@ namespace BepinControl
 
                             if (networkIdentity == null) return;
                             uint _customerNetID = networkIdentity.netId;
-
-                            //mls.LogInfo($"NPC {_customerNetID.ToString()}");
                             if (_customerNetID == 0) return;
 
                             AddOrUpdateCustomer(_customerNetID.ToString(), gameObject.name);
@@ -812,7 +815,6 @@ namespace BepinControl
                         Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_response, settings));
 
                     }
-                    
 
                     break;
 
@@ -1071,12 +1073,13 @@ namespace BepinControl
                 if (isTwitchChatAllowed)
                 {
                     TestMod.mls.LogInfo("Twitch Chat is enabled.");
-                    CreateChatStatusText("Twitch Chat is enabled.");
+                    //CreateChatStatusText("Twitch Chat is enabled.");
+                    SendHudMessage("<color=green>Twitch Chat is enabled.</color>");
                 }
                 else
                 {
                     TestMod.mls.LogInfo("Twitch Chat is disabled.");
-                    CreateChatStatusText("Twitch Chat is disabled.");
+                    SendHudMessage("<color=red>Twitch Chat is disabled.</color>");
                 }
 
             }
@@ -1182,7 +1185,76 @@ namespace BepinControl
             }
         }
 
+
+    
+
+
+        [HarmonyPatch(typeof(Data_Container), "UserCode_CmdActivateCashMethod__Int32")]
+        public class Patch_DataContainer_UserCode_CmdActivateCashMethod__Int32
+        {
+            public static void Postfix(Data_Container __instance, int amountToPay)
+            {
+
+                mls.LogInfo("GRABBED CASH???");
+
+                TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
+                component.color = Color.red;
+                component.text = "DO THE MATH!";
+
+
+
+            }
+        }
+
+
+
+        [HarmonyPatch(typeof(Data_Container), "UserCode_RpcHidePaymentMethod__Int32__Int32")]
+        public class Patch_DataContainer_UserCode_RpcHidePaymentMethod__Int32__Int32
+        {
+            public static void Postfix(Data_Container __instance, int index, int amountGiven)
+            {
+
+                mls.LogInfo("GRABBED CASH 2???");
+
+                TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
+                component.color = Color.red;
+                component.text = "DO THE MATH!";
+
+
+
+            }
+        }
+
+        [HarmonyPatch(typeof(Data_Container), "UpdateCash")]
+        public class Patch_DataContainer_UpdateCash
+        {
+            public static void Postfix(Data_Container __instance, float amountToAdd)
+            {
+                mls.LogInfo("DO THE MATH");
+                /*
+
+                 if (this.currentAmountToReturn + amountToAdd < 0f)
+                     {
+                         this.currentAmountToReturn = 0f;
+                         component.color = Color.red;
+                         component.text = "$" + this.currentAmountToReturn.ToString();
+                         gameObject.SetActive(false);
+                         this.allowMoneyReturn = false;
+                         return;
+                     }
+                */
+
+                TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
+                component.color = Color.red;
+                component.text = "DO THE MATH!";
+
+
+
+            }
+        }
+
         
+
 
         [HarmonyPatch(typeof(GameCanvas), "CreateCanvasNotification")]
         public class Patch_GameCanvas_CreateCanvasNotification
