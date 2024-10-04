@@ -21,6 +21,8 @@ using Newtonsoft.Json.Linq;
 using static UnityEngine.InputSystem.InputRemoting;
 using System.Text.RegularExpressions;
 using UnityEngine.Windows;
+using System.Reflection;
+using System.Collections;
 
 namespace BepinControl
 {
@@ -390,6 +392,30 @@ namespace BepinControl
             Instance.SendChatMessage(jsonMessage);
         }
 
+        public static void SpawnTrash(int requestID, string viewerName)
+        {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
+
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var message = new
+            {
+                type = "CMD",
+                command = "SPAWN_TRASH",
+                arg1 = viewerName,
+                tag = MESSAGE_TAG,
+                requestID = requestID
+            };
+
+            string jsonMessage = JsonConvert.SerializeObject(message, settings);
+            Instance.SendChatMessage(jsonMessage);
+        }
+
+
         public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel = null)
         {
 
@@ -618,6 +644,34 @@ namespace BepinControl
 
         }
 
+
+
+        public class CoroutineManager : MonoBehaviour
+        {
+            private static CoroutineManager _instance;
+
+            public static CoroutineManager Instance
+            {
+                get
+                {
+                    if (_instance == null)
+                    {
+                        // Create a new GameObject to attach the MonoBehaviour to
+                        var obj = new GameObject("CoroutineManager");
+                        _instance = obj.AddComponent<CoroutineManager>();
+                        DontDestroyOnLoad(obj); // Prevent the object from being destroyed
+                    }
+                    return _instance;
+                }
+            }
+
+            // This method allows you to start coroutines
+            public static void StartRoutine(IEnumerator routine)
+            {
+                Instance.StartCoroutine(routine);
+            }
+        }
+
         private static void ProcessCommand(JsonMessage jsonMessage, string playerName)
         {
 
@@ -638,14 +692,12 @@ namespace BepinControl
                     var response = new JsonMessage
                     {
                         type = "RSP",
-                        command = "VERSION",
+                        command = jsonMessage.command,
                         playerName = playerName,
                         response = versionMatched.ToString(),
                         messageID = jsonMessage.messageID,
                         tag = MESSAGE_TAG
                     };
-
-                 
 
                     mls.LogInfo($"Processing version check for: {playerName} Version: {jsonMessage.version} Matched: {versionMatched}");
 
@@ -654,6 +706,88 @@ namespace BepinControl
 
                     
                     break;
+
+                case "SPAWN_TRASH":
+                    if (!isHost) return;
+
+                    string customerName = jsonMessage.arg1;
+                    try
+                    {
+                        GameData gameData = GameData.Instance;
+
+
+
+                        int maxExclusive = 6 + gameData.GetComponent<UpgradesManager>().spaceBought;
+                        int index = UnityEngine.Random.Range(0, maxExclusive);
+                        Transform baseRaycastSpot = gameData.trashSpotsParent.transform.GetChild(index);
+                        Vector3 spawnSpot = Vector3.zero;
+                        bool foundRaycastSpot = false;
+                        while (!foundRaycastSpot)
+                        {
+                            RaycastHit raycastHit;
+                            if (Physics.Raycast(baseRaycastSpot.position + new Vector3(UnityEngine.Random.Range(-2.4f, 2.4f), 0f, UnityEngine.Random.Range(-1.9f, 1.9f)), -Vector3.up, out raycastHit, 5f, gameData.lMask) && raycastHit.transform.gameObject.tag == "Buildable")
+                            {
+                                spawnSpot = raycastHit.point;
+                                foundRaycastSpot = true;
+                            }
+                            //yield return null;
+                        }
+                        int networktrashID = UnityEngine.Random.Range(0, 5);
+                        GameObject gameObject = GameObject.Instantiate<GameObject>(gameData.trashSpawnPrefab, gameData.GetComponent<NetworkSpawner>().levelPropsOBJ.transform.GetChild(6).transform);
+                        gameObject.transform.position = spawnSpot;
+                        gameObject.GetComponent<TrashSpawn>().NetworktrashID = networktrashID;
+                        gameObject.GetComponent<PlayMakerFSM>().enabled = true;
+                        NetworkServer.Spawn(gameObject, (NetworkConnection)null);
+
+                        NetworkIdentity networkIdentity = gameObject.GetComponent<NetworkIdentity>();
+
+                        if (networkIdentity == null) return;
+                        uint objectNetID = networkIdentity.netId;
+                        if (objectNetID == 0) return;
+
+
+                        var spawn_msg = new JsonMessage
+                        {
+                            type = "BST",
+                            command = "SPAWN_TRASH",
+                            arg1 = customerName,
+                            arg2 = objectNetID.ToString(),
+                            tag = MESSAGE_TAG
+                        };
+                        //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
+                        Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
+
+
+
+                        /*
+                        MethodInfo spawnTrashMethod = gameData.GetType().GetMethod("SpawnTrash", BindingFlags.Instance | BindingFlags.NonPublic);
+                        if (spawnTrashMethod != null)
+                        {
+                            IEnumerator spawnTrashCoroutine = (IEnumerator)spawnTrashMethod.Invoke(gameData, null);
+                            if (spawnTrashCoroutine != null) CoroutineManager.StartRoutine(spawnTrashCoroutine);
+                            
+                        }
+                        */
+                    } catch (Exception e)
+                    {
+                        responseStatus = "STATUS_FAILURE";
+                    }
+
+                    requestID = jsonMessage.requestID;
+
+                    var trash_response = new JsonMessage
+                    {
+                        type = "RSP",
+                        command = jsonMessage.command,
+                        requestID = requestID,
+                        response = responseStatus,
+                        tag = MESSAGE_TAG
+                    };
+
+                    Instance.SendChatMessage(JsonConvert.SerializeObject(trash_response, settings));
+
+                    break;
+
                 case "UPDATE_FP":
 
                     GameData gd = GameData.Instance;
@@ -665,14 +799,11 @@ namespace BepinControl
                     if (!isHost) return;
 
                     var methodInfo = typeof(GameData).GetMethod("RpcAcquireFranchise", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-                    if (methodInfo != null)
-                    {
-                        methodInfo.Invoke(GameData.Instance, new object[] { 0 });
-                    }
-
+                    if (methodInfo != null) methodInfo.Invoke(GameData.Instance, new object[] { 0 });
 
                     break;
+
+
 
                 case "JAIL_PLAYER":
                     if (!isHost) return;
@@ -699,24 +830,17 @@ namespace BepinControl
                                 {
                                     if (jailPlayerName.ToLower() == playerInfo.PlayerName.ToLower())
                                     {
-                                        TestMod.mls.LogInfo("Jail Player " + playerInfo.PlayerName);
+                                        
                                         PlayerPermissions playerPermssions = serverIdentity.gameObject.GetComponentInChildren<PlayerPermissions>();
                                         CrowdDelegates.callFunc(playerPermssions, "RpcJPlayer", 69);
-                                        responseStatus = "STATUS_SUCCESS";
-
                                         SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!");
-
+                                        responseStatus = "STATUS_SUCCESS";
 
                                     }
                                 }
 
-
                             }
-                            
-
                         }
-
-
                     }
                         catch (Exception e)
                         {
@@ -740,9 +864,9 @@ namespace BepinControl
 
                 case "SPAWN_CUS":
 
-                        string customerName = jsonMessage.arg1;
-                        string _twitchChannel = jsonMessage.arg2;
-                        requestID = jsonMessage.requestID;
+                    customerName = jsonMessage.arg1;
+                    string _twitchChannel = jsonMessage.arg2;
+                    requestID = jsonMessage.requestID;
                         
                     if (customerName.Length >= 1)
                         {
@@ -856,7 +980,7 @@ namespace BepinControl
 
                         if (!isHost) return;
 
-
+                       
                         if (_twitchChannel.Length >= 1 && isTwitchChatAllowed)
                         {
                             //set whatever the last channel we get here, just incase we're not connected yet, we use that for the connection
@@ -1002,6 +1126,7 @@ namespace BepinControl
                 case "SPAWN_EMP":
                 case "SPAWN_CUS":
                 case "JAIL_PLAYER":
+                case "SPAWN_TRASH":
                     {
 
                         if (Instance.pendingMessageIDs.Remove(jsonMessage.requestID.ToString()))
@@ -1042,12 +1167,67 @@ namespace BepinControl
         }
 
 
+        private static float GetObjectHeight(GameObject obj)
+        {
+            Collider collider = obj.GetComponent<Collider>();
+            if (collider != null)
+            {
+                return collider.bounds.size.y;  
+            }
+            Renderer renderer = obj.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                return renderer.bounds.size.y;  
+            }
+
+            return 1.8f;
+        }
+
+
+        public class NamePlateController : MonoBehaviour
+        {
+            public Transform target;  
+            private Camera mainCamera;
+            public float distanceThreshold = 4f;  
+
+            private TextMeshPro tmp;
+
+            void Start()
+            {
+                mainCamera = Camera.main;
+
+                tmp = GetComponent<TextMeshPro>();
+            }
+
+            void Update()
+            {
+                if (target == null) return;
+
+                float distance = Vector3.Distance(mainCamera.transform.position, target.position);
+
+                if (distance <= distanceThreshold)
+                {
+                    tmp.enabled = true;
+                    Vector3 directionToCamera = mainCamera.transform.position - transform.position;
+                    directionToCamera.y = 0;
+                    Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
+                    transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
+
+                }
+                else
+                {
+                    tmp.enabled = false;
+                }
+            }
+        }
+
         private static void ProcessBroadcast(JsonMessage jsonMessage, string playerName)
         {
             try
             {
                 switch (jsonMessage.command)
                 {
+                    case "SPAWN_TRASH":
                     case "SPAWN_CUS":
                     case "SPAWN_EMP":
                         string customerName = jsonMessage.arg1;
@@ -1064,9 +1244,12 @@ namespace BepinControl
                                 {
                                     GameObject localObject = serverIdentity.gameObject;
 
+                                    float objectHeight = GetObjectHeight(localObject);
+
                                     GameObject namePlate = new GameObject("NamePlate");
+
                                     namePlate.transform.SetParent(localObject.transform);
-                                    namePlate.transform.localPosition = Vector3.up * 1.9f;
+                                    namePlate.transform.localPosition = Vector3.up * (objectHeight + 0.1f);  
 
                                     localObject.transform.name = foundCustomerName;
 
@@ -1075,8 +1258,8 @@ namespace BepinControl
                                     tmp.alignment = TextAlignmentOptions.Center;
                                     tmp.fontSize = 1;
 
-                                    namePlate.AddComponent<NamePlateController>();
-
+                                    NamePlateController namePlateController = namePlate.AddComponent<NamePlateController>();
+                                    namePlateController.target = localObject.transform;
                                 }
                             }
                         }
@@ -1132,59 +1315,9 @@ namespace BepinControl
         public static Queue<Action> ActionQueue = new Queue<Action>();
 
 
-        public static GameObject currentTextObject = null;
-        public static void CreateChatStatusText(string message)
-        {
-
-            //Only the host can enable/disable Twitch chat
-            if (!isHost) return;
-            if (currentTextObject != null) UnityEngine.Object.Destroy(currentTextObject);
-            
-            Camera cam = FindObjectOfType<Camera>();
-            if (cam == null) return;
-
-            currentTextObject = new GameObject("ChatStatusText");
-            TextMeshPro chatStatusText = currentTextObject.AddComponent<TextMeshPro>();
-
-            chatStatusText.fontSize = 0.05f;
-            chatStatusText.color = new Color(0.5f, 0, 1);
-            chatStatusText.alignment = TextAlignmentOptions.Center;
-            chatStatusText.text = message;
-            chatStatusText.lineSpacing = 1.2f;
-
-            Vector3 screenCenterPosition = cam.ViewportToWorldPoint(new Vector3(0.5f, 0.6f, 0.15f));
-            currentTextObject.transform.position = screenCenterPosition;
 
 
-            currentTextObject.transform.SetParent(cam.transform, true);
-            currentTextObject.AddComponent<FaceCamera>();
-
-            UnityEngine.Object.Destroy(currentTextObject, 3f);
-        }
-
-        public class FaceCamera : MonoBehaviour
-        {
-            private Camera mainCamera;
-
-            void Start()
-            {
-                mainCamera = Camera.main ?? FindObjectOfType<Camera>();
-
-            }
-
-            void LateUpdate()
-            {
-                if (mainCamera == null) return;
-
-                Vector3 directionToCamera = mainCamera.transform.position - transform.position;
-                directionToCamera.y = 0;
-                directionToCamera.Normalize();
-
-                Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
-                transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
-
-            }
-        }
+        
 
         [HarmonyPatch(typeof(PlayerNetwork), "Update")]
         [HarmonyPrefix]
@@ -1274,30 +1407,7 @@ namespace BepinControl
         }
 
 
-        public class NamePlateController : MonoBehaviour
-        {
-            private Camera mainCamera;
 
-            void Start()
-            {
-                mainCamera = Camera.main;
-
-                if (mainCamera == null)
-                {
-                    mainCamera = FindObjectOfType<Camera>();
-                }
-            }
-
-            void LateUpdate()
-            {
-                if (mainCamera == null) return;
-
-                Vector3 directionToCamera = mainCamera.transform.position - transform.position;
-                directionToCamera.y = 0;
-                Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
-                transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
-            }
-        }
 
 
 
@@ -1395,7 +1505,10 @@ namespace BepinControl
 
 
 
-        [HarmonyPatch(typeof(PlayerNetwork), "Start")]
+
+
+
+            [HarmonyPatch(typeof(PlayerNetwork), "Start")]
         public static class Patch_PlayerNetwork_Start
         {
             [HarmonyPostfix]

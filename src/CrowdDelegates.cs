@@ -105,31 +105,6 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
-        public static CrowdResponse GiveExtraEmployeeOld(ControlClient client, CrowdRequest req)
-        {
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            NPC_Manager NPC = NPC_Manager.Instance;
-            GameData gd = GameData.Instance;
-            try
-            {
-                if (NPC.maxEmployees == NPC.NPCsEmployeesArray.Length) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Too many Employees");
-                else
-                {
-                    TestMod.ActionQueue.Enqueue(() =>
-                    {
-                        NPC.maxEmployees++;
-
-                        NPC.UpdateEmployeesNumberInBlackboard();
-                    });
-                }
-            }
-            catch (Exception e)
-            {
-
-            }
-            return new CrowdResponse(req.GetReqID(), status, message);
-        }
 
         public static CrowdResponse ComplainAboutFilth(ControlClient client, CrowdRequest req)
         {
@@ -197,6 +172,7 @@ namespace BepinControl
         }
         public static CrowdResponse GiveItemToPlayer(ControlClient client, CrowdRequest req)
         {
+
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
             PlayerObjectController playerRef = LobbyController.FindFirstObjectByType<LobbyController>().LocalplayerController;
@@ -385,9 +361,69 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
+        public static CrowdResponse SpawnTrash(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
 
+            try
+            {
+
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    TestMod.SpawnTrash(req.id, req.viewer);
+                });
+
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+                if (status.ToString() == "STATUS_SUCCESS")
+                {
+                    TestMod.SendHudMessage($"{req.viewer} spawned a employee!");
+                }
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
 
         public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    TestMod.SpawnTrash(req.id, req.viewer);
+                });
+
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+                
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+
+        public static CrowdResponse GiveExtraEmployee2(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
