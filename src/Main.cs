@@ -87,6 +87,8 @@ namespace BepinControl
         {
 
             // Twitch oauth ini support incase we want to connect with an authenicated user for something
+           
+            /*
             string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "twitchauth.ini");
             if (File.Exists(filePath))
             {
@@ -110,7 +112,7 @@ namespace BepinControl
                     twitchOauth = "";
                 }
             }
-            
+            */
 
             try
             {
@@ -122,7 +124,7 @@ namespace BepinControl
                 // Request membership and tags capabilities from Twitch
                 twitchWriter.WriteLine("CAP REQ :twitch.tv/membership twitch.tv/tags twitch.tv/commands");
 
-                if (twitchOauth.Length > 0) twitchWriter.WriteLine($"PASS oauth:{twitchOauth}");
+                //if (twitchOauth.Length > 0) twitchWriter.WriteLine($"PASS oauth:{twitchOauth}");
 
                 twitchWriter.WriteLine($"NICK {twitchUsername}");
                 twitchWriter.WriteLine($"JOIN #{twitchChannel}");
@@ -362,6 +364,31 @@ namespace BepinControl
             Instance.SendChatMessage(jsonMessage);
         }
 
+
+        public static void SendSpawnEmployee(int requestID, string customerName, string _twitchChannel = null)
+        {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
+
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var message = new
+            {
+                type = "CMD",
+                command = "SPAWN_EMP",
+                arg1 = customerName,
+                arg2 = (_twitchChannel != null && _twitchChannel.Length >= 1) ? _twitchChannel : null,
+                tag = MESSAGE_TAG,
+                requestID = requestID
+            };
+
+
+            string jsonMessage = JsonConvert.SerializeObject(message, settings);
+            Instance.SendChatMessage(jsonMessage);
+        }
 
         public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel = null)
         {
@@ -783,7 +810,6 @@ namespace BepinControl
                             uint _customerNetID = networkIdentity.netId;
                             if (_customerNetID == 0) return;
 
-                            AddOrUpdateCustomer(_customerNetID.ToString(), gameObject.name);
 
                             var spawn_msg = new JsonMessage
                             {
@@ -817,6 +843,110 @@ namespace BepinControl
                     }
 
                     break;
+
+
+                case "SPAWN_EMP":
+
+                    customerName = jsonMessage.arg1;
+                    _twitchChannel = jsonMessage.arg2;
+                    requestID = jsonMessage.requestID;
+
+                    if (customerName.Length >= 1)
+                    {
+
+                        if (!isHost) return;
+
+
+                        if (_twitchChannel.Length >= 1 && isTwitchChatAllowed)
+                        {
+                            //set whatever the last channel we get here, just incase we're not connected yet, we use that for the connection
+                            twitchChannel = _twitchChannel;
+
+
+                            if (isChatConnected && !twitchChannels.Contains(_twitchChannel))
+                            {
+                                twitchChannels.Add(_twitchChannel);
+                                twitchWriter.WriteLine($"JOIN #{_twitchChannel}");
+                                twitchWriter.Flush();
+                                mls.LogInfo($"Connected to {_twitchChannel} Twitch Chat!");
+                            }
+
+                            if (!isChatConnected && twitchChannel.Length >= 1)
+                            {
+                                twitchChannels.Add(_twitchChannel);
+                                ConnectToTwitchChat();
+                            }
+
+                        }
+
+                        try
+                        {
+
+
+                            NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
+
+                            Vector3 position = npcManager.employeeSpawnpoint.transform.position + new Vector3(UnityEngine.Random.Range(-1f, 1f), 0f, UnityEngine.Random.Range(-1f, 1f));
+                            GameObject gameObject = GameObject.Instantiate<GameObject>(npcManager.npcAgentPrefab, position, Quaternion.identity);
+                            gameObject.transform.SetParent(npcManager.employeeParentOBJ.transform);
+                            gameObject.name = customerName.ToString();
+                            NPC_Info npc = gameObject.GetComponent<NPC_Info>();
+                            npc.NetworkNPCID = UnityEngine.Random.Range(0, npcManager.NPCsEmployeesArray.Length - 1);
+                            npc.NetworkisEmployee = true;
+                            npc.name = customerName.ToString();
+                            NetworkServer.Spawn(gameObject, (NetworkConnection)null);
+                            NavMeshAgent component2 = gameObject.GetComponent<NavMeshAgent>();
+                            component2.agentTypeID = npcManager.transform.Find("AgentSample").GetComponent<NavMeshAgent>().agentTypeID;
+                            component2.enabled = true;
+                            component2.speed = 2.5f + 2.5f * npcManager.extraEmployeeSpeedFactor;
+
+                            NetworkServer.Spawn(gameObject, (NetworkConnection)null);
+                            NetworkIdentity networkIdentity = gameObject.GetComponent<NetworkIdentity>();
+
+                            if (networkIdentity == null) return;
+                            uint _npcNetID = networkIdentity.netId;
+                            if (_npcNetID == 0) return;
+
+                            npcManager.maxEmployees++;
+                            npcManager.UpdateEmployeesNumberInBlackboard();
+
+
+                            AddOrUpdateCustomer(_npcNetID.ToString(), customerName);
+
+                            var spawn_msg = new JsonMessage
+                            {
+                                type = "BST",
+                                command = "SPAWN_EMP",
+                                arg1 = customerName,
+                                arg2 = _npcNetID.ToString(),
+                                tag = MESSAGE_TAG
+                            };
+                            Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
+
+
+                        }
+                        catch (Exception e)
+                        {
+                            mls.LogInfo(e);
+                            responseStatus = "STATUS_FAILURE";
+                        }
+
+
+                        var spawn_response = new JsonMessage
+                        {
+                            type = "RSP",
+                            command = "SPAWN_CUS",
+                            requestID = requestID,
+                            response = responseStatus,
+                            tag = MESSAGE_TAG
+                        };
+
+                        Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_response, settings));
+
+                    }
+
+                    break;
+
+
 
                 default:
                     mls.LogWarning($"Unknown command: {jsonMessage.command}");
@@ -869,6 +999,7 @@ namespace BepinControl
                     break;
                 }
 
+                case "SPAWN_EMP":
                 case "SPAWN_CUS":
                 case "JAIL_PLAYER":
                     {
@@ -918,7 +1049,7 @@ namespace BepinControl
                 switch (jsonMessage.command)
                 {
                     case "SPAWN_CUS":
-
+                    case "SPAWN_EMP":
                         string customerName = jsonMessage.arg1;
                         string customerNetID = jsonMessage.arg2;
 
@@ -1186,42 +1317,17 @@ namespace BepinControl
         }
 
 
-    
 
 
+        /*
         [HarmonyPatch(typeof(Data_Container), "UserCode_CmdActivateCashMethod__Int32")]
         public class Patch_DataContainer_UserCode_CmdActivateCashMethod__Int32
         {
             public static void Postfix(Data_Container __instance, int amountToPay)
             {
-
-                mls.LogInfo("GRABBED CASH???");
-
                 TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
                 component.color = Color.red;
                 component.text = "DO THE MATH!";
-
-
-
-            }
-        }
-
-
-
-        [HarmonyPatch(typeof(Data_Container), "UserCode_RpcHidePaymentMethod__Int32__Int32")]
-        public class Patch_DataContainer_UserCode_RpcHidePaymentMethod__Int32__Int32
-        {
-            public static void Postfix(Data_Container __instance, int index, int amountGiven)
-            {
-
-                mls.LogInfo("GRABBED CASH 2???");
-
-                TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
-                component.color = Color.red;
-                component.text = "DO THE MATH!";
-
-
-
             }
         }
 
@@ -1230,31 +1336,29 @@ namespace BepinControl
         {
             public static void Postfix(Data_Container __instance, float amountToAdd)
             {
-                mls.LogInfo("DO THE MATH");
-                /*
-
-                 if (this.currentAmountToReturn + amountToAdd < 0f)
-                     {
-                         this.currentAmountToReturn = 0f;
-                         component.color = Color.red;
-                         component.text = "$" + this.currentAmountToReturn.ToString();
-                         gameObject.SetActive(false);
-                         this.allowMoneyReturn = false;
-                         return;
-                     }
-                */
 
                 TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
                 component.color = Color.red;
                 component.text = "DO THE MATH!";
 
-
-
             }
         }
 
-        
 
+        */
+
+
+        [HarmonyPatch(typeof(Data_Container), "UserCode_RpcHidePaymentMethod__Int32__Int32")]
+        public class Patch_DataContainer_UserCode_RpcHidePaymentMethod__Int32__Int32
+        {
+            public static void Postfix(Data_Container __instance, int index, int amountGiven)
+            {
+
+                TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
+                component.color = Color.red;            
+                component.text = "DO THE MATH!";
+            }
+        }
 
         [HarmonyPatch(typeof(GameCanvas), "CreateCanvasNotification")]
         public class Patch_GameCanvas_CreateCanvasNotification

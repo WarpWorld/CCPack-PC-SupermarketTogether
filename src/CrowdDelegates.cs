@@ -105,7 +105,7 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
-        public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
+        public static CrowdResponse GiveExtraEmployeeOld(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
@@ -385,6 +385,47 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
+
+
+        public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+   
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    if (req.targets != null)
+                    {
+                        if (req.targets[0].service == "twitch")
+                        {
+                            TestMod.SendSpawnEmployee(req.id, req.viewer, req.targets[0].name);
+                        }
+                        else
+                        {
+                            TestMod.SendSpawnEmployee(req.id, req.viewer);
+                        }
+                    }
+                    TestMod.SendHudMessage($"{req.viewer} spawned a employee!");
+                });
+
+   
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
 
         public static CrowdResponse SpawnCustomer(ControlClient client, CrowdRequest req)
         {
