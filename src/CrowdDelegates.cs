@@ -1,19 +1,15 @@
-﻿using System;
+﻿using HutongGames.PlayMaker.Actions;
+using Mirror;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
-using Mirror;
-using UnityEngine.AI;
-using HutongGames.PlayMaker.Actions;
 using System.Runtime.CompilerServices;
-using J4F;
-
+using System.Threading.Tasks;
+using UnityEngine;
 
 namespace BepinControl
 {
     public delegate CrowdResponse CrowdDelegate(ControlClient client, CrowdRequest req);
-
-
 
     public static class CustomerChatNames
     {
@@ -41,6 +37,8 @@ namespace BepinControl
         public static System.Random rnd = new System.Random();
         public static int maxBoxCount = 100;
         public static uint msgid = 0;
+        
+        public static readonly TimeSpan SERVER_TIMEOUT = TimeSpan.FromSeconds(5);
 
         public static CrowdResponse TurnOnLights(ControlClient client, CrowdRequest req)
         {
@@ -49,15 +47,15 @@ namespace BepinControl
             GameData gd = GameData.Instance;
             try
             {
-                    TestMod.ActionQueue.Enqueue(() =>
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    foreach (Transform item in gd.lightsOBJ.transform)
                     {
-                        foreach (Transform item in gd.lightsOBJ.transform)
-                        {
-                            item.transform.Find("StreetLight").GetComponent<MeshRenderer>().material = gd.lightsOn;
-                            item.transform.Find("Light_1").gameObject.SetActive(value: true);
-                            item.transform.Find("Light_2").gameObject.SetActive(value: true);
-                        }
-                    });
+                        item.transform.Find("StreetLight").GetComponent<MeshRenderer>().material = gd.lightsOn;
+                        item.transform.Find("Light_1").gameObject.SetActive(value: true);
+                        item.transform.Find("Light_2").gameObject.SetActive(value: true);
+                    }
+                });
             }
             catch (Exception e)
             {
@@ -75,7 +73,7 @@ namespace BepinControl
             string[] Amount = req.code.Split('_');
             GameData GD = GameData.Instance;
             int Money = 0;
-            if(Amount.Length == 2)
+            if (Amount.Length == 2)
             {
                 Money = int.Parse(Amount[1]);
             }
@@ -98,7 +96,7 @@ namespace BepinControl
                     });
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
                 status = CrowdResponse.Status.STATUS_RETRY;
@@ -107,7 +105,7 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
-        public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
+        public static CrowdResponse GiveExtraEmployeeOld(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
@@ -121,7 +119,7 @@ namespace BepinControl
                     TestMod.ActionQueue.Enqueue(() =>
                     {
                         NPC.maxEmployees++;
-                        
+
                         NPC.UpdateEmployeesNumberInBlackboard();
                     });
                 }
@@ -132,30 +130,7 @@ namespace BepinControl
             }
             return new CrowdResponse(req.GetReqID(), status, message);
         }
-        public static CrowdResponse SpawnCustomer(ControlClient client, CrowdRequest req)
-        {
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            GameData gd = GameData.Instance;
-            try
-            {
-                if (!GameData.Instance.isSupermarketOpen) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Store is Closed");
-                else
-                {
-                    TestMod.ActionQueue.Enqueue(() =>
-                    {
-                        
-                        callFunc(NPC_Manager.Instance, "SpawnCustomerNCP", null);
-                    });
-                }
-            }
-            catch (Exception e)
-            {
-                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
-                status = CrowdResponse.Status.STATUS_RETRY;
-            }
-            return new CrowdResponse(req.GetReqID(), status, message);
-        }
+
         public static CrowdResponse ComplainAboutFilth(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
@@ -208,7 +183,9 @@ namespace BepinControl
                 TestMod.ActionQueue.Enqueue(() =>
                 {
                     NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f);
-                    GameCanvas.Instance.CreateCanvasNotification($"{req.viewer} Just Sent in an Item!");
+                    TestMod.SendHudMessage($"{req.viewer} just spawned some inventory!");
+
+                  
                 });
             }
             catch (Exception e)
@@ -306,6 +283,8 @@ namespace BepinControl
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
+
+        //ChangeSuperName
         public static CrowdResponse ChangeSuperName(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
@@ -314,6 +293,7 @@ namespace BepinControl
             string[] enteredText = req.code.Split('_');
             int amount = 0;
             string newName = null;
+
             try
             {
                 amount = int.Parse(enteredText[1]);
@@ -326,13 +306,180 @@ namespace BepinControl
             }
             catch
             {
-                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "WHERES THE MONEY");
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Unable to change name.");
             }
+            try
+            {
+  
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    NS.CmdSetSupermarketText(newName);
+
+
+                  
+
+                   // TrashSpawn trashSpawn = TrashSpawn.FindFirstObjectByType<TrashSpawn>();
+                    //trashSpawn.OnStartClient();
+                    
+
+
+                    TrashSpawn trashSpawn = TrashSpawn.FindObjectOfType<TrashSpawn>();
+                    if (trashSpawn != null)
+                    {
+                        TestMod.mls.LogInfo("Spawn some trash?");
+                        trashSpawn.OnStartClient();
+                    }
+
+
+
+
+
+                });
+ 
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+
+     
+        public static CrowdResponse JailPlayer(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    LobbyController lobbyController = LobbyController.Instance;
+
+                    if (lobbyController != null)
+                    {
+                        PlayerObjectController playerInfo = lobbyController.LocalPlayerObject.GetComponentInChildren<PlayerObjectController>();
+                        if (playerInfo != null)
+                        {
+                            TestMod.JailPlayer(req.id, playerInfo.PlayerName, req.viewer);
+                        }
+                    }
+                });
+
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+
+
+        public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+   
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    if (req.targets != null)
+                    {
+                        if (req.targets[0].service == "twitch")
+                        {
+                            TestMod.SendSpawnEmployee(req.id, req.viewer, req.targets[0].name);
+                        }
+                        else
+                        {
+                            TestMod.SendSpawnEmployee(req.id, req.viewer);
+                        }
+                    }
+                    TestMod.SendHudMessage($"{req.viewer} spawned a employee!");
+                });
+
+   
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+        public static CrowdResponse SpawnCustomer(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+                //this creates the callback context that should be created
+                //before the message is sent out to the server
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    if (req.targets != null)
+                    {
+                        if (req.targets[0].service == "twitch")
+                        {
+                            TestMod.SendSpawnCustomer(req.id, req.viewer, req.targets[0].name);
+                        }
+                        else
+                        {
+                            TestMod.SendSpawnCustomer(req.id, req.viewer);
+                        }
+                    }
+                    TestMod.SendHudMessage($"{req.viewer} spawned a customer!");
+                });
+
+                //this part that waits for the response from the server
+                //DO NOT PUT THIS INSIDE ANYTHING PASSED TO ActionQueue.Enqueue
+                //IT COULD EASILY DEADLOCK SOMETHING MAYBE DEPENDING ON THE GAME
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+        public static CrowdResponse Give1FP(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+            GameData gd = GameData.Instance;
             try
             {
                 TestMod.ActionQueue.Enqueue(() =>
                 {
-                    NS.CmdSetSupermarketText(newName);
+                    TestMod.UpdateFranchisePoints(req.id, req.viewer);
                 });
             }
             catch (Exception e)
@@ -343,27 +490,21 @@ namespace BepinControl
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
-        public static CrowdResponse Give1FP(ControlClient client, CrowdRequest req)
-        {
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            GameData gd = GameData.Instance;
-            try
-            {
-                    TestMod.ActionQueue.Enqueue(() =>
-                    {
-                        gd.gameFranchisePoints = gd.gameFranchisePoints + 1;
-                        gd.UIFranchisePointsOBJ.text = gd.gameFranchisePoints.ToString();
-                    });
-            }
-            catch (Exception e)
-            {
-                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
-                status = CrowdResponse.Status.STATUS_RETRY;
-            }
 
-            return new CrowdResponse(req.GetReqID(), status, message);
+        public static void SendCCMessage(string message)
+        {
+
+            TestMod.ActionQueue.Enqueue(() =>
+            {
+                string value = ("<color=green>CrowdControl:</color> " + message);
+                PlayMakerFSM chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
+                chatFSM.FsmVariables.GetFsmString("Message").Value = value;
+                chatFSM.SendEvent("Send_Data");
+            });
+
         }
+
+
         public static void setProperty(System.Object a, string prop, System.Object val)
         {
             var f = a.GetType().GetField(prop, BindingFlags.Instance | BindingFlags.NonPublic);
