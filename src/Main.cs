@@ -21,6 +21,11 @@ using Newtonsoft.Json.Linq;
 using static UnityEngine.InputSystem.InputRemoting;
 using System.Text.RegularExpressions;
 using UnityEngine.Windows;
+using System.Reflection;
+using System.Collections;
+using HutongGames.PlayMaker.Actions;
+using System.Runtime.Remoting.Messaging;
+using static UnityEngine.Rendering.RayTracingAccelerationStructure;
 
 namespace BepinControl
 {
@@ -44,9 +49,10 @@ namespace BepinControl
         public static bool isHost = false;
         public static bool ranVersionCheck = false;
 
+        public static bool forceMath = false;
         private const string MESSAGE_TAG = "</b>";
 
-        public static Dictionary<string, string> customerDictionary = new Dictionary<string, string>();
+        public static Dictionary<string, string> spawnedObjects = new Dictionary<string, string>();
 
 
         // START TWITCH STUFF
@@ -87,7 +93,7 @@ namespace BepinControl
         {
 
             // Twitch oauth ini support incase we want to connect with an authenicated user for something
-           
+
             /*
             string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "twitchauth.ini");
             if (File.Exists(filePath))
@@ -159,8 +165,8 @@ namespace BepinControl
                                         string chatMessage = messageParts[3].Substring(1);
                                         string[] chatParts = chatMessage.Split(new[] { " :" }, 2, StringSplitOptions.None);
                                         chatMessage = chatParts[1];
-                                        chatMessage = Regex.Replace(chatMessage, @"[^A-Za-z0-9!?.<>=/@#$%^&*(){}\[\]\"";:'\\]", "");
-
+                                        chatMessage = Regex.Replace(chatMessage, @"[^A-Za-z0-9!?.<>=/@#$%^&*(){}_\[\]\"";:'\\ ]", "");
+                                        chatMessage = chatMessage.ToLower();
                                         var badges = ParseBadges(messageParts[0]);
 
 
@@ -188,19 +194,73 @@ namespace BepinControl
                                             TestMod.ActionQueue.Enqueue(() =>
                                             {
 
+                                                //3_TV(Clone) - 3594812703
 
                                                 var spawnedObjects = isHost ? NetworkServer.spawned : NetworkClient.spawned;
-                                                //List<NetworkIdentity> matchingIdentities = new List<NetworkIdentity>();
+
+                                                NetworkIdentity closestIdentity = null;
+                                                float closestDistance = float.MaxValue;
+
+                                                Camera mainCamera = Camera.main;
 
                                                 foreach (var kvp in spawnedObjects)
                                                 {
                                                     NetworkIdentity serverIdentity = kvp.Value;
+
                                                     if (serverIdentity.assetId != 620925214) continue;
                                                     if (serverIdentity.gameObject.name.ToLower() != username.ToLower()) continue;
 
                                                     NPC_Info npcInfo = serverIdentity.gameObject.GetComponentInChildren<NPC_Info>();
-                                                    if (npcInfo != null) npcInfo.RPCNotificationAboveHead(chatMessage, "crowdcontrol");
-                                                    
+
+                                                    if (npcInfo != null)
+                                                    {
+                                                        float distance = Vector3.Distance(mainCamera.transform.position, serverIdentity.gameObject.transform.position);
+
+                                                        if (distance < closestDistance)
+                                                        {
+                                                            closestDistance = distance;
+                                                            closestIdentity = serverIdentity;
+                                                        }
+                                                    }
+                                                }
+
+                                                if (closestIdentity != null)
+                                                {
+                                                    NPC_Info closestNpcInfo = closestIdentity.gameObject.GetComponentInChildren<NPC_Info>();
+
+                                                    if (closestNpcInfo != null)
+                                                    {
+                                                       // mls.LogInfo($"{closestIdentity.name} - {closestIdentity.assetId} - {closestNpcInfo.isEmployee}  ");
+
+                                                        if (chatMessage.Contains("*trash*") && !closestNpcInfo.isEmployee)
+                                                        {
+                                                            chatMessage = chatMessage.Replace("*trash*", "");
+                                                            DropTrash(closestNpcInfo, closestIdentity.gameObject.name);
+                                                        }
+                                                    /*    no one can quit yet...
+                                                     *    else if (chatMessage.Contains("*quit*") && closestNpcInfo.isEmployee)
+                                                        {
+                                                            chatMessage = chatMessage.Replace("*quit*", "");
+                                                            if (chatMessage == "") chatMessage = "I QUIT!";
+                                                            AboveNPCMessage(chatMessage, closestNpcInfo);
+
+                                                            NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
+                                                            closestNpcInfo.isEmployee = false;
+                                                            npcManager.maxEmployees = npcManager.maxEmployees - 1;
+                                                            if (npcManager.maxEmployees <= 0) npcManager.maxEmployees = 0;
+
+                                                            //Destroy(closestNpcInfo.gameObject);
+                                                            npcManager.UpdateEmployeesNumberInBlackboard();
+
+                                                            //CrowdDelegates.callFunc(npcManager, "AssignEmployeePriorities", "");
+                                                        } */
+                                                        else
+                                                        {
+                                                            AboveNPCMessage(chatMessage, closestNpcInfo);
+                                                        }
+                                                    }
+
+
                                                 }
 
                                             });
@@ -298,18 +358,18 @@ namespace BepinControl
             ranVersionCheck = false;
         }
 
-        
-        public static void AddOrUpdateCustomer(string customerNetID, string customerName)
+
+        public static void AddOrUpdateSpawnedObjects(string netID, string spawnName)
         {
-            if (customerName.Length >= 1)
+            if (spawnName.Length >= 1)
             {
-                if (customerDictionary.ContainsKey(customerNetID))
+                if (spawnedObjects.ContainsKey(netID))
                 {
-                    customerDictionary[customerNetID] = customerName;
+                    spawnedObjects[netID] = spawnName;
                 }
                 else
                 {
-                    customerDictionary.Add(customerNetID, customerName);
+                    spawnedObjects.Add(netID, spawnName);
                 }
             }
         }
@@ -389,6 +449,30 @@ namespace BepinControl
             string jsonMessage = JsonConvert.SerializeObject(message, settings);
             Instance.SendChatMessage(jsonMessage);
         }
+
+        public static void SpawnTrash(int requestID, string viewerName)
+        {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
+
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var message = new
+            {
+                type = "CMD",
+                command = "SPAWN_TRASH",
+                arg1 = viewerName,
+                tag = MESSAGE_TAG,
+                requestID = requestID
+            };
+
+            string jsonMessage = JsonConvert.SerializeObject(message, settings);
+            Instance.SendChatMessage(jsonMessage);
+        }
+
 
         public static void SendSpawnCustomer(int requestID, string customerName, string _twitchChannel = null)
         {
@@ -481,7 +565,7 @@ namespace BepinControl
                         return true;
                     }
 
-        
+
                     if (message.Contains(MESSAGE_TAG))
                     {
 
@@ -492,23 +576,23 @@ namespace BepinControl
                             ProcessMessage(message, playerName);
                             return false;
                         }
-                        
+
                         return true;
                     }
 
- 
+
                 }
                 catch (Exception ex)
                 {
 
-                    return true; 
+                    return true;
                 }
 
                 return true;
             }
 
 
-           
+
         }
 
         private static void ProcessMessage(string message, string playerName)
@@ -560,7 +644,7 @@ namespace BepinControl
             }
         }
 
-       
+
         private static bool IsValidJson(string json)
         {
             try
@@ -614,8 +698,36 @@ namespace BepinControl
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public string arg2 { get; set; }
 
- 
 
+
+        }
+
+
+
+        public class CoroutineManager : MonoBehaviour
+        {
+            private static CoroutineManager _instance;
+
+            public static CoroutineManager Instance
+            {
+                get
+                {
+                    if (_instance == null)
+                    {
+                        // Create a new GameObject to attach the MonoBehaviour to
+                        var obj = new GameObject("CoroutineManager");
+                        _instance = obj.AddComponent<CoroutineManager>();
+                        DontDestroyOnLoad(obj); // Prevent the object from being destroyed
+                    }
+                    return _instance;
+                }
+            }
+
+            // This method allows you to start coroutines
+            public static void StartRoutine(IEnumerator routine)
+            {
+                Instance.StartCoroutine(routine);
+            }
         }
 
         private static void ProcessCommand(JsonMessage jsonMessage, string playerName)
@@ -638,22 +750,91 @@ namespace BepinControl
                     var response = new JsonMessage
                     {
                         type = "RSP",
-                        command = "VERSION",
+                        command = jsonMessage.command,
                         playerName = playerName,
                         response = versionMatched.ToString(),
                         messageID = jsonMessage.messageID,
                         tag = MESSAGE_TAG
                     };
 
-                 
-
                     mls.LogInfo($"Processing version check for: {playerName} Version: {jsonMessage.version} Matched: {versionMatched}");
 
                     string jsonResponse = JsonConvert.SerializeObject(response, settings);
                     Instance.SendChatMessage(jsonResponse);
 
-                    
+
                     break;
+
+                case "SPAWN_TRASH":
+                    if (!isHost) return;
+
+                    string customerName = jsonMessage.arg1;
+                    try
+                    {
+                        GameData gameData = GameData.Instance;
+
+
+
+                        int maxExclusive = 6 + gameData.GetComponent<UpgradesManager>().spaceBought;
+                        int index = UnityEngine.Random.Range(0, maxExclusive);
+                        Transform baseRaycastSpot = gameData.trashSpotsParent.transform.GetChild(index);
+                        Vector3 spawnSpot = Vector3.zero;
+                        bool foundRaycastSpot = false;
+                        while (!foundRaycastSpot)
+                        {
+                            RaycastHit raycastHit;
+                            if (Physics.Raycast(baseRaycastSpot.position + new Vector3(UnityEngine.Random.Range(-2.4f, 2.4f), 0f, UnityEngine.Random.Range(-1.9f, 1.9f)), -Vector3.up, out raycastHit, 5f, gameData.lMask) && raycastHit.transform.gameObject.tag == "Buildable")
+                            {
+                                spawnSpot = raycastHit.point;
+                                foundRaycastSpot = true;
+                            }
+                        }
+                        int networktrashID = UnityEngine.Random.Range(0, 5);
+                        GameObject gameObject = Instantiate(gameData.trashSpawnPrefab, gameData.GetComponent<NetworkSpawner>().levelPropsOBJ.transform.GetChild(6).transform);
+                        gameObject.transform.position = spawnSpot;
+                        gameObject.GetComponent<TrashSpawn>().NetworktrashID = networktrashID;
+                        gameObject.GetComponent<PlayMakerFSM>().enabled = true;
+                        NetworkServer.Spawn(gameObject, (NetworkConnection)null);
+
+                        NetworkIdentity networkIdentity = gameObject.GetComponent<NetworkIdentity>();
+
+                        if (networkIdentity == null) return;
+                        uint objectNetID = networkIdentity.netId;
+                        if (objectNetID == 0) return;
+
+
+                        var spawn_msg = new JsonMessage
+                        {
+                            type = "BST",
+                            command = "SPAWN_TRASH",
+                            arg1 = customerName,
+                            arg2 = objectNetID.ToString(),
+                            tag = MESSAGE_TAG
+                        };
+                        Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
+
+
+                    }
+                    catch (Exception e)
+                    {
+                        responseStatus = "STATUS_FAILURE";
+                    }
+
+                    requestID = jsonMessage.requestID;
+
+                    var trash_response = new JsonMessage
+                    {
+                        type = "RSP",
+                        command = jsonMessage.command,
+                        requestID = requestID,
+                        response = responseStatus,
+                        tag = MESSAGE_TAG
+                    };
+
+                    Instance.SendChatMessage(JsonConvert.SerializeObject(trash_response, settings));
+
+                    break;
+
                 case "UPDATE_FP":
 
                     GameData gd = GameData.Instance;
@@ -665,14 +846,11 @@ namespace BepinControl
                     if (!isHost) return;
 
                     var methodInfo = typeof(GameData).GetMethod("RpcAcquireFranchise", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-                    if (methodInfo != null)
-                    {
-                        methodInfo.Invoke(GameData.Instance, new object[] { 0 });
-                    }
-
+                    if (methodInfo != null) methodInfo.Invoke(GameData.Instance, new object[] { 0 });
 
                     break;
+
+
 
                 case "JAIL_PLAYER":
                     if (!isHost) return;
@@ -682,9 +860,9 @@ namespace BepinControl
                     requestID = jsonMessage.requestID;
 
 
-                        responseStatus = "STATUS_FAILURE";
-                        try
-                        {
+                    responseStatus = "STATUS_FAILURE";
+                    try
+                    {
 
                         var serverObjects = NetworkServer.spawned;
                         foreach (var kvp in serverObjects)
@@ -699,78 +877,70 @@ namespace BepinControl
                                 {
                                     if (jailPlayerName.ToLower() == playerInfo.PlayerName.ToLower())
                                     {
-                                        TestMod.mls.LogInfo("Jail Player " + playerInfo.PlayerName);
+
                                         PlayerPermissions playerPermssions = serverIdentity.gameObject.GetComponentInChildren<PlayerPermissions>();
                                         CrowdDelegates.callFunc(playerPermssions, "RpcJPlayer", 69);
+                                        SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!", "red");
                                         responseStatus = "STATUS_SUCCESS";
-
-                                        SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!");
-
 
                                     }
                                 }
 
-
                             }
-                            
-
                         }
-
-
                     }
-                        catch (Exception e)
-                        {
-                            responseStatus = "STATUS_FAILURE";
-                        }
+                    catch (Exception e)
+                    {
+                        responseStatus = "STATUS_FAILURE";
+                    }
 
 
-                        var jail_response = new JsonMessage
-                        {
-                            type = "RSP",
-                            command = "JAIL_PLAYER",
-                            requestID = requestID,
-                            response = responseStatus,
-                            tag = MESSAGE_TAG
-                        };
+                    var jail_response = new JsonMessage
+                    {
+                        type = "RSP",
+                        command = "JAIL_PLAYER",
+                        requestID = requestID,
+                        response = responseStatus,
+                        tag = MESSAGE_TAG
+                    };
 
-                        Instance.SendChatMessage(JsonConvert.SerializeObject(jail_response, settings));
+                    Instance.SendChatMessage(JsonConvert.SerializeObject(jail_response, settings));
 
                     break;
 
 
                 case "SPAWN_CUS":
 
-                        string customerName = jsonMessage.arg1;
-                        string _twitchChannel = jsonMessage.arg2;
-                        requestID = jsonMessage.requestID;
-                        
+                    customerName = jsonMessage.arg1;
+                    string _twitchChannel = jsonMessage.arg2;
+                    requestID = jsonMessage.requestID;
+
                     if (customerName.Length >= 1)
+                    {
+
+                        if (!isHost) return;
+
+
+                        if (_twitchChannel.Length >= 1 && isTwitchChatAllowed)
                         {
+                            //set whatever the last channel we get here, just incase we're not connected yet, we use that for the connection
+                            twitchChannel = _twitchChannel;
 
-                            if (!isHost) return;
-
-
-                            if (_twitchChannel.Length >= 1 && isTwitchChatAllowed)
+                            if (isChatConnected && !twitchChannels.Contains(_twitchChannel))
                             {
-                                //set whatever the last channel we get here, just incase we're not connected yet, we use that for the connection
-                                twitchChannel = _twitchChannel;
-
-
-                                if (isChatConnected && !twitchChannels.Contains(_twitchChannel))
-                                {
-                                    twitchChannels.Add(_twitchChannel);
-                                    twitchWriter.WriteLine($"JOIN #{_twitchChannel}");
-                                    twitchWriter.Flush();
-                                    mls.LogInfo($"Connected to {_twitchChannel} Twitch Chat!");
-                                }
-
-                                if (!isChatConnected && twitchChannel.Length >= 1)
-                                {
-                                    twitchChannels.Add(_twitchChannel);
-                                    ConnectToTwitchChat();
-                                }
-
+                                twitchChannels.Add(_twitchChannel);
+                                twitchWriter.WriteLine($"JOIN #{_twitchChannel}");
+                                twitchWriter.Flush();
+                                mls.LogInfo($"Connected to {_twitchChannel} Twitch Chat!");
                             }
+
+                            if (!isChatConnected && twitchChannel.Length >= 1)
+                            {
+                                twitchChannels.Add(_twitchChannel);
+                                ConnectToTwitchChat();
+                            }
+
+                        }
 
                         try
                         {
@@ -822,8 +992,9 @@ namespace BepinControl
                             //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
                             Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
 
-                            
-                        } catch (Exception e)
+
+                        }
+                        catch (Exception e)
                         {
                             responseStatus = "STATUS_FAILURE";
                         }
@@ -910,7 +1081,7 @@ namespace BepinControl
                             npcManager.UpdateEmployeesNumberInBlackboard();
 
 
-                            AddOrUpdateCustomer(_npcNetID.ToString(), customerName);
+                            AddOrUpdateSpawnedObjects(_npcNetID.ToString(), customerName);
 
                             var spawn_msg = new JsonMessage
                             {
@@ -955,19 +1126,29 @@ namespace BepinControl
         }
 
 
-        public static void SendHudMessage(string message)
+        public static void SendHudMessage(string message, string color = "blue", bool important = false)
         {
-            GameCanvas.Instance.CreateCanvasNotification($"CC:<color=red>{message}</color>");
+            GameCanvas gameCanvas = GameCanvas.FindFirstObjectByType<GameCanvas>();
+            GameObject gameObject = important ? GameObject.Instantiate<GameObject>(gameCanvas.importantNotificationPrefab, gameCanvas.importantNotificationParentTransform) : GameObject.Instantiate<GameObject>(gameCanvas.notificationPrefab, gameCanvas.notificationParentTransform);
+            gameObject.GetComponent<TextMeshProUGUI>().text = $"<color={color}>{message}</color>";
+            gameObject.SetActive(true);
         }
+
+        public static void AboveNPCMessage(string message, NPC_Info npc_info)
+        {
+            GameObject gameObject = GameObject.Instantiate<GameObject>(npc_info.messagePrefab, npc_info.transform.position + Vector3.up * 1.8f, Quaternion.identity);
+            gameObject.GetComponent<TextMeshPro>().text = message;
+            gameObject.SetActive(true);
+    
+        }
+
 
         public static void SendServerAnnouncement(string message)
         {
-
             string value = ("<color=green>CrowdControl:</color> " + message);
             PlayMakerFSM chatFSM = LobbyController.Instance.ChatContainerOBJ.GetComponent<PlayMakerFSM>();
             chatFSM.FsmVariables.GetFsmString("Message").Value = value;
             chatFSM.SendEvent("Send_Data");
-
         }
 
         private static void ProcessResponse(JsonMessage jsonMessage, string playerName)
@@ -975,33 +1156,34 @@ namespace BepinControl
             switch (jsonMessage.command)
             {
                 case "VERSION":
-                {
-                    //If we are already valid, we don't need to send this again.
-                    //This will get set to false when we leave a server
-                    if (validVersion) return;
-                    bool versionMatched = bool.TryParse(jsonMessage.response, out versionMatched);
-
-                    if (Instance.pendingMessageIDs.Remove(jsonMessage.messageID))
                     {
-                        versionResponse = true;
-                        if (versionMatched)
-                        {
-                            validVersion = true;
-                            mls.LogInfo($"Version Matched! Ready for Effects.");
-                        }
-                        else
-                        {
-                            validVersion = false;
-                            mls.LogInfo($"Version Mismatch! Make sure mod version matches.");
-                        }
-                    }
+                        //If we are already valid, we don't need to send this again.
+                        //This will get set to false when we leave a server
+                        if (validVersion) return;
+                        bool versionMatched = bool.TryParse(jsonMessage.response, out versionMatched);
 
-                    break;
-                }
+                        if (Instance.pendingMessageIDs.Remove(jsonMessage.messageID))
+                        {
+                            versionResponse = true;
+                            if (versionMatched)
+                            {
+                                validVersion = true;
+                                mls.LogInfo($"Version Matched! Ready for Effects.");
+                            }
+                            else
+                            {
+                                validVersion = false;
+                                mls.LogInfo($"Version Mismatch! Make sure mod version matches.");
+                            }
+                        }
+
+                        break;
+                    }
 
                 case "SPAWN_EMP":
                 case "SPAWN_CUS":
                 case "JAIL_PLAYER":
+                case "SPAWN_TRASH":
                     {
 
                         if (Instance.pendingMessageIDs.Remove(jsonMessage.requestID.ToString()))
@@ -1032,8 +1214,8 @@ namespace BepinControl
                             }
                         }
 
-                    break;
-                }
+                        break;
+                    }
                 // Add other response types here
                 default:
                     mls.LogWarning($"Unknown response command: {jsonMessage.command}");
@@ -1042,20 +1224,74 @@ namespace BepinControl
         }
 
 
+        private static float GetObjectHeight(GameObject obj)
+        {
+            Collider collider = obj.GetComponent<Collider>();
+            if (collider != null)
+            {
+                return collider.bounds.size.y;
+            }
+            Renderer renderer = obj.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                return renderer.bounds.size.y;
+            }
+
+            return 1.8f;
+        }
+
+
+        public class NamePlateController : MonoBehaviour
+        {
+            public Transform target;
+            private Camera mainCamera;
+            public float distanceThreshold = 4f;
+
+            private TextMeshPro tmp;
+
+            void Start()
+            {
+                mainCamera = Camera.main;
+                tmp = GetComponent<TextMeshPro>();
+            }
+
+            void Update()
+            {
+                if (target == null) return;
+
+                float distance = Vector3.Distance(mainCamera.transform.position, target.position);
+
+                if (distance <= distanceThreshold)
+                {
+                    tmp.enabled = true;
+                    Vector3 directionToCamera = mainCamera.transform.position - transform.position;
+                    directionToCamera.y = 0;
+                    Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
+                    transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
+
+                }
+                else
+                {
+                    tmp.enabled = false;
+                }
+            }
+        }
+
         private static void ProcessBroadcast(JsonMessage jsonMessage, string playerName)
         {
             try
             {
                 switch (jsonMessage.command)
                 {
+                    case "SPAWN_TRASH":
                     case "SPAWN_CUS":
                     case "SPAWN_EMP":
                         string customerName = jsonMessage.arg1;
                         string customerNetID = jsonMessage.arg2;
 
-                        AddOrUpdateCustomer(customerNetID, customerName);
+                        AddOrUpdateSpawnedObjects(customerNetID, customerName);
 
-                        if (customerDictionary.TryGetValue(customerNetID.ToString(), out string foundCustomerName))
+                        if (spawnedObjects.TryGetValue(customerNetID.ToString(), out string foundCustomerName))
                         {
 
                             if (uint.TryParse(customerNetID, out uint netID))
@@ -1064,9 +1300,12 @@ namespace BepinControl
                                 {
                                     GameObject localObject = serverIdentity.gameObject;
 
+                                    float objectHeight = GetObjectHeight(localObject);
+
                                     GameObject namePlate = new GameObject("NamePlate");
+
                                     namePlate.transform.SetParent(localObject.transform);
-                                    namePlate.transform.localPosition = Vector3.up * 1.9f;
+                                    namePlate.transform.localPosition = Vector3.up * (objectHeight + 0.1f);
 
                                     localObject.transform.name = foundCustomerName;
 
@@ -1075,17 +1314,15 @@ namespace BepinControl
                                     tmp.alignment = TextAlignmentOptions.Center;
                                     tmp.fontSize = 1;
 
-                                    namePlate.AddComponent<NamePlateController>();
-
+                                    NamePlateController namePlateController = namePlate.AddComponent<NamePlateController>();
+                                    namePlateController.target = localObject.transform;
                                 }
                             }
                         }
 
 
-
                         break;
 
-                    
 
 
                     default:
@@ -1102,6 +1339,46 @@ namespace BepinControl
 
 
 
+        private static void DropTrash(NPC_Info npc_info, string playerName)
+        {
+
+
+            TestMod.ActionQueue.Enqueue(() =>
+            {
+                GameData gameData = GameData.Instance;
+
+                int networktrashID = UnityEngine.Random.Range(0, 5);
+                GameObject gameObject = GameObject.Instantiate<GameObject>(gameData.trashSpawnPrefab, gameData.GetComponent<NetworkSpawner>().levelPropsOBJ.transform.GetChild(6).transform);
+                gameObject.transform.position = npc_info.transform.position;
+                gameObject.GetComponent<TrashSpawn>().NetworktrashID = networktrashID;
+                gameObject.GetComponent<PlayMakerFSM>().enabled = true;
+                NetworkServer.Spawn(gameObject, (NetworkConnection)null);
+
+                NetworkIdentity networkIdentity = gameObject.GetComponent<NetworkIdentity>();
+
+                if (networkIdentity == null) return;
+                uint objectNetID = networkIdentity.netId;
+                if (objectNetID == 0) return;
+
+
+                var spawn_msg = new JsonMessage
+                {
+                    type = "BST",
+                    command = "SPAWN_TRASH",
+                    arg1 = playerName,
+                    arg2 = objectNetID.ToString(),
+                    tag = MESSAGE_TAG
+                };
+                //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
+                Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg));
+
+            });
+
+
+
+        }
+
+
         private void SendChatMessage(string message)
         {
 
@@ -1110,81 +1387,32 @@ namespace BepinControl
                 var playerController = NetworkClient.connection.identity.GetComponent<PlayerObjectController>();
                 if (playerController != null)
                 {
-   
+
                     try
                     {
                         if (!string.IsNullOrEmpty(message))
                         {
                             playerController.SendChatMsg(message);
                         }
-                    } catch (Exception e)
-                    {
-                        mls.LogError("Cannot send chat msg: " +  e);
                     }
-                    
+                    catch (Exception e)
+                    {
+                        mls.LogError("Cannot send chat msg: " + e);
+                    }
+
 
                 }
-                
+
             }
-           
+
         }
 
         public static Queue<Action> ActionQueue = new Queue<Action>();
 
 
-        public static GameObject currentTextObject = null;
-        public static void CreateChatStatusText(string message)
-        {
-
-            //Only the host can enable/disable Twitch chat
-            if (!isHost) return;
-            if (currentTextObject != null) UnityEngine.Object.Destroy(currentTextObject);
-            
-            Camera cam = FindObjectOfType<Camera>();
-            if (cam == null) return;
-
-            currentTextObject = new GameObject("ChatStatusText");
-            TextMeshPro chatStatusText = currentTextObject.AddComponent<TextMeshPro>();
-
-            chatStatusText.fontSize = 0.05f;
-            chatStatusText.color = new Color(0.5f, 0, 1);
-            chatStatusText.alignment = TextAlignmentOptions.Center;
-            chatStatusText.text = message;
-            chatStatusText.lineSpacing = 1.2f;
-
-            Vector3 screenCenterPosition = cam.ViewportToWorldPoint(new Vector3(0.5f, 0.6f, 0.15f));
-            currentTextObject.transform.position = screenCenterPosition;
 
 
-            currentTextObject.transform.SetParent(cam.transform, true);
-            currentTextObject.AddComponent<FaceCamera>();
 
-            UnityEngine.Object.Destroy(currentTextObject, 3f);
-        }
-
-        public class FaceCamera : MonoBehaviour
-        {
-            private Camera mainCamera;
-
-            void Start()
-            {
-                mainCamera = Camera.main ?? FindObjectOfType<Camera>();
-
-            }
-
-            void LateUpdate()
-            {
-                if (mainCamera == null) return;
-
-                Vector3 directionToCamera = mainCamera.transform.position - transform.position;
-                directionToCamera.y = 0;
-                directionToCamera.Normalize();
-
-                Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
-                transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
-
-            }
-        }
 
         [HarmonyPatch(typeof(PlayerNetwork), "Update")]
         [HarmonyPrefix]
@@ -1205,12 +1433,12 @@ namespace BepinControl
                 {
                     TestMod.mls.LogInfo("Twitch Chat is enabled.");
                     //CreateChatStatusText("Twitch Chat is enabled.");
-                    SendHudMessage("<color=green>Twitch Chat is enabled.</color>");
+                    SendHudMessage("Twitch Chat is enabled", "green", true);
                 }
                 else
                 {
                     TestMod.mls.LogInfo("Twitch Chat is disabled.");
-                    SendHudMessage("<color=red>Twitch Chat is disabled.</color>");
+                    SendHudMessage("Twitch Chat is disabled.", "red", true);
                 }
 
             }
@@ -1274,30 +1502,7 @@ namespace BepinControl
         }
 
 
-        public class NamePlateController : MonoBehaviour
-        {
-            private Camera mainCamera;
 
-            void Start()
-            {
-                mainCamera = Camera.main;
-
-                if (mainCamera == null)
-                {
-                    mainCamera = FindObjectOfType<Camera>();
-                }
-            }
-
-            void LateUpdate()
-            {
-                if (mainCamera == null) return;
-
-                Vector3 directionToCamera = mainCamera.transform.position - transform.position;
-                directionToCamera.y = 0;
-                Quaternion lookRotation = Quaternion.LookRotation(directionToCamera);
-                transform.rotation = lookRotation * Quaternion.Euler(0, 180, 0);
-            }
-        }
 
 
 
@@ -1307,12 +1512,12 @@ namespace BepinControl
             static void Postfix(NPC_Info __instance, int animationIndex)
             {
 
-                if (__instance.name.Length >=1 && isChatConnected && !__instance.name.Contains("(Clone)"))
+                if (__instance.name.Length >= 1 && isChatConnected && !__instance.name.Contains("(Clone)"))
                 {
-                   //possible twitch timeout functionality later?
-                   //mls.LogInfo($"HIT {__instance.name} WITH A BROOOM");
+                    //possible twitch timeout functionality later?
+                    //mls.LogInfo($"HIT {__instance.name} WITH A BROOOM");
                 }
-                
+
             }
         }
 
@@ -1353,43 +1558,35 @@ namespace BepinControl
         {
             public static void Postfix(Data_Container __instance, int index, int amountGiven)
             {
-
+                if (!forceMath) return;
                 TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
-                component.color = Color.red;            
+                component.color = Color.red;
                 component.text = "DO THE MATH!";
             }
         }
 
-        [HarmonyPatch(typeof(GameCanvas), "CreateCanvasNotification")]
-        public class Patch_GameCanvas_CreateCanvasNotification
+
+        [HarmonyPatch(typeof(GameData), "UpdateSunPosition")]
+        public class Patch_UpdateSunPosition
         {
-            static bool Prefix(GameCanvas __instance, string hash)
+            [HarmonyPostfix]
+            public static void Postfix(GameData __instance)
             {
-                if (!hash.StartsWith("CC:")) return true;
-                hash = hash.Replace("CC:", "");
-                GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(__instance.notificationPrefab, __instance.notificationParentTransform);
-                gameObject.GetComponent<TextMeshProUGUI>().text = hash;
-                gameObject.SetActive(true);
-                return false;
-
-            }
-        }
-
-
-        [HarmonyPatch(typeof(NPC_Info), "UserCode_RPCNotificationAboveHead__String__String")]
-        public class Patch_UserCode_RPCNotificationAboveHead
-        {
-            static bool Prefix(NPC_Info __instance, string message1, string messageAddon)
-            {
-                if (messageAddon == "crowdcontrol")
+                // Find the main camera
+                Camera mainCamera = Camera.main;
+                if (mainCamera != null)
                 {
-                    GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(__instance.messagePrefab, __instance.transform.position + Vector3.up * 1.8f, Quaternion.identity);
-                    gameObject.GetComponent<TextMeshPro>().text = message1;
-                    gameObject.SetActive(true);
-                    return false;
-                }
+                    // Position the sun and moon near the camera's location
+                    Vector3 cameraPosition = mainCamera.transform.position;
 
-                return true;
+                    // Adjust the positions of sun and moon relative to the camera
+                    // For example, placing them at some fixed distance from the camera
+                    float sunDistance = 20f; // Example distance from the camera for the sun
+                    float moonDistance = 20f; // Example distance from the camera for the moon
+
+                    __instance.sunLight.transform.position = cameraPosition + mainCamera.transform.forward * sunDistance;
+                    __instance.moonLight.transform.position = cameraPosition + mainCamera.transform.forward * moonDistance;
+                }
             }
         }
 
