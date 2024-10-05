@@ -54,6 +54,10 @@ namespace BepinControl
                         item.transform.Find("StreetLight").GetComponent<MeshRenderer>().material = gd.lightsOn;
                         item.transform.Find("Light_1").gameObject.SetActive(value: true);
                         item.transform.Find("Light_2").gameObject.SetActive(value: true);
+
+
+                        gd.timeOfDay = gd.timeOfDay + 1f;
+
                     }
                 });
             }
