@@ -23,6 +23,9 @@ using System.Text.RegularExpressions;
 using UnityEngine.Windows;
 using System.Reflection;
 using System.Collections;
+using HutongGames.PlayMaker.Actions;
+using System.Runtime.Remoting.Messaging;
+using static UnityEngine.Rendering.RayTracingAccelerationStructure;
 
 namespace BepinControl
 {
@@ -46,6 +49,7 @@ namespace BepinControl
         public static bool isHost = false;
         public static bool ranVersionCheck = false;
 
+        public static bool forceMath = false;
         private const string MESSAGE_TAG = "</b>";
 
         public static Dictionary<string, string> customerDictionary = new Dictionary<string, string>();
@@ -191,18 +195,46 @@ namespace BepinControl
                                             {
 
 
+                                                //3_TV(Clone) - 3594812703
+
                                                 var spawnedObjects = isHost ? NetworkServer.spawned : NetworkClient.spawned;
-                                                //List<NetworkIdentity> matchingIdentities = new List<NetworkIdentity>();
 
                                                 foreach (var kvp in spawnedObjects)
                                                 {
                                                     NetworkIdentity serverIdentity = kvp.Value;
+
                                                     if (serverIdentity.assetId != 620925214) continue;
                                                     if (serverIdentity.gameObject.name.ToLower() != username.ToLower()) continue;
 
                                                     NPC_Info npcInfo = serverIdentity.gameObject.GetComponentInChildren<NPC_Info>();
-                                                    if (npcInfo != null) npcInfo.RPCNotificationAboveHead(chatMessage, "crowdcontrol");
-                                                    
+
+                                                    if (npcInfo != null)
+                                                    {
+
+                                                        mls.LogInfo($"{serverIdentity.name} - {serverIdentity.assetId} - {npcInfo.isEmployee}  ");
+                                                        if (chatMessage.ToLower().Contains("*trash*") && !npcInfo.isEmployee)
+                                                        {
+                                                            DropTrash(npcInfo, serverIdentity.gameObject.name);
+                                                            return;
+                                                        }
+
+                                                        if (chatMessage.ToLower().Contains("*quit*") && npcInfo.isEmployee)
+                                                        {
+                                                            if (chatMessage.ToLower() == "*quit*") chatMessage = "I QUIT!";
+                                                            AboveNPCMessage(chatMessage, npcInfo);
+                                                            NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
+                                                            npcManager.maxEmployees = npcManager.maxEmployees - 1;
+                                                            if (npcManager.maxEmployees <= 0) npcManager.maxEmployees = 0;
+                                                            npcInfo.isEmployee = false;
+                                                            npcManager.UpdateEmployeesNumberInBlackboard();
+                                                            Destroy(npcInfo.gameObject);
+                                                            return;
+                                                        }
+
+                                                        AboveNPCMessage(chatMessage, npcInfo);
+                                                        
+                                                    }
+
                                                 }
 
                                             });
@@ -715,7 +747,7 @@ namespace BepinControl
                     {
                         GameData gameData = GameData.Instance;
 
-
+                        
 
                         int maxExclusive = 6 + gameData.GetComponent<UpgradesManager>().spaceBought;
                         int index = UnityEngine.Random.Range(0, maxExclusive);
@@ -730,10 +762,9 @@ namespace BepinControl
                                 spawnSpot = raycastHit.point;
                                 foundRaycastSpot = true;
                             }
-                            //yield return null;
                         }
                         int networktrashID = UnityEngine.Random.Range(0, 5);
-                        GameObject gameObject = GameObject.Instantiate<GameObject>(gameData.trashSpawnPrefab, gameData.GetComponent<NetworkSpawner>().levelPropsOBJ.transform.GetChild(6).transform);
+                        GameObject gameObject = Instantiate(gameData.trashSpawnPrefab, gameData.GetComponent<NetworkSpawner>().levelPropsOBJ.transform.GetChild(6).transform);
                         gameObject.transform.position = spawnSpot;
                         gameObject.GetComponent<TrashSpawn>().NetworktrashID = networktrashID;
                         gameObject.GetComponent<PlayMakerFSM>().enabled = true;
@@ -757,8 +788,8 @@ namespace BepinControl
                         //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
                         Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
 
-
-
+                        
+                        
                         /*
                         MethodInfo spawnTrashMethod = gameData.GetType().GetMethod("SpawnTrash", BindingFlags.Instance | BindingFlags.NonPublic);
                         if (spawnTrashMethod != null)
@@ -833,7 +864,7 @@ namespace BepinControl
                                         
                                         PlayerPermissions playerPermssions = serverIdentity.gameObject.GetComponentInChildren<PlayerPermissions>();
                                         CrowdDelegates.callFunc(playerPermssions, "RpcJPlayer", 69);
-                                        SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!");
+                                        SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!", "red");
                                         responseStatus = "STATUS_SUCCESS";
 
                                     }
@@ -1079,10 +1110,21 @@ namespace BepinControl
         }
 
 
-        public static void SendHudMessage(string message)
+        public static void SendHudMessage(string message, string color = "blue", bool important = false)
         {
-            GameCanvas.Instance.CreateCanvasNotification($"CC:<color=red>{message}</color>");
+            GameCanvas gameCanvas = GameCanvas.FindFirstObjectByType<GameCanvas>();
+            GameObject gameObject = important ? GameObject.Instantiate<GameObject>(gameCanvas.importantNotificationPrefab, gameCanvas.importantNotificationParentTransform) : GameObject.Instantiate<GameObject>(gameCanvas.notificationPrefab, gameCanvas.notificationParentTransform);
+            gameObject.GetComponent<TextMeshProUGUI>().text = $"<color={color}>{message}</color>";
+            gameObject.SetActive(true);
         }
+
+        public static void AboveNPCMessage(string message, NPC_Info npc_info)
+        {
+            GameObject gameObject = GameObject.Instantiate<GameObject>(npc_info.messagePrefab, npc_info.transform.position + Vector3.up * 1.8f, Quaternion.identity);   
+            gameObject.GetComponent<TextMeshPro>().text = message;
+            gameObject.SetActive(true);
+        }
+
 
         public static void SendServerAnnouncement(string message)
         {
@@ -1195,7 +1237,6 @@ namespace BepinControl
             void Start()
             {
                 mainCamera = Camera.main;
-
                 tmp = GetComponent<TextMeshPro>();
             }
 
@@ -1285,6 +1326,46 @@ namespace BepinControl
 
 
 
+        private static void DropTrash(NPC_Info npc_info, string playerName)
+        {
+
+
+            TestMod.ActionQueue.Enqueue(() =>
+            {
+                GameData gameData = GameData.Instance;
+
+                int networktrashID = UnityEngine.Random.Range(0, 5);
+                GameObject gameObject = GameObject.Instantiate<GameObject>(gameData.trashSpawnPrefab, gameData.GetComponent<NetworkSpawner>().levelPropsOBJ.transform.GetChild(6).transform);
+                gameObject.transform.position = npc_info.transform.position;
+                gameObject.GetComponent<TrashSpawn>().NetworktrashID = networktrashID;
+                gameObject.GetComponent<PlayMakerFSM>().enabled = true;
+                NetworkServer.Spawn(gameObject, (NetworkConnection)null);
+
+                NetworkIdentity networkIdentity = gameObject.GetComponent<NetworkIdentity>();
+
+                if (networkIdentity == null) return;
+                uint objectNetID = networkIdentity.netId;
+                if (objectNetID == 0) return;
+
+
+                var spawn_msg = new JsonMessage
+                {
+                    type = "BST",
+                    command = "SPAWN_TRASH",
+                    arg1 = playerName,
+                    arg2 = objectNetID.ToString(),
+                    tag = MESSAGE_TAG
+                };
+                //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
+                Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg));
+
+            });
+    
+
+
+        }
+
+
         private void SendChatMessage(string message)
         {
 
@@ -1338,12 +1419,12 @@ namespace BepinControl
                 {
                     TestMod.mls.LogInfo("Twitch Chat is enabled.");
                     //CreateChatStatusText("Twitch Chat is enabled.");
-                    SendHudMessage("<color=green>Twitch Chat is enabled.</color>");
+                    SendHudMessage("Twitch Chat is enabled", "green", true);
                 }
                 else
                 {
                     TestMod.mls.LogInfo("Twitch Chat is disabled.");
-                    SendHudMessage("<color=red>Twitch Chat is disabled.</color>");
+                    SendHudMessage("Twitch Chat is disabled.", "red", true);
                 }
 
             }
@@ -1463,52 +1544,19 @@ namespace BepinControl
         {
             public static void Postfix(Data_Container __instance, int index, int amountGiven)
             {
-
+                if (!forceMath) return;
                 TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
                 component.color = Color.red;            
                 component.text = "DO THE MATH!";
             }
         }
 
-        [HarmonyPatch(typeof(GameCanvas), "CreateCanvasNotification")]
-        public class Patch_GameCanvas_CreateCanvasNotification
-        {
-            static bool Prefix(GameCanvas __instance, string hash)
-            {
-                if (!hash.StartsWith("CC:")) return true;
-                hash = hash.Replace("CC:", "");
-                GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(__instance.notificationPrefab, __instance.notificationParentTransform);
-                gameObject.GetComponent<TextMeshProUGUI>().text = hash;
-                gameObject.SetActive(true);
-                return false;
-
-            }
-        }
-
-
-        [HarmonyPatch(typeof(NPC_Info), "UserCode_RPCNotificationAboveHead__String__String")]
-        public class Patch_UserCode_RPCNotificationAboveHead
-        {
-            static bool Prefix(NPC_Info __instance, string message1, string messageAddon)
-            {
-                if (messageAddon == "crowdcontrol")
-                {
-                    GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(__instance.messagePrefab, __instance.transform.position + Vector3.up * 1.8f, Quaternion.identity);
-                    gameObject.GetComponent<TextMeshPro>().text = message1;
-                    gameObject.SetActive(true);
-                    return false;
-                }
-
-                return true;
-            }
-        }
+       
 
 
 
 
-
-
-            [HarmonyPatch(typeof(PlayerNetwork), "Start")]
+        [HarmonyPatch(typeof(PlayerNetwork), "Start")]
         public static class Patch_PlayerNetwork_Start
         {
             [HarmonyPostfix]
