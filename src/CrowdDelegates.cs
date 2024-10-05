@@ -54,6 +54,10 @@ namespace BepinControl
                         item.transform.Find("StreetLight").GetComponent<MeshRenderer>().material = gd.lightsOn;
                         item.transform.Find("Light_1").gameObject.SetActive(value: true);
                         item.transform.Find("Light_2").gameObject.SetActive(value: true);
+
+
+                        gd.timeOfDay = gd.timeOfDay + 1f;
+
                     }
                 });
             }
@@ -105,31 +109,6 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
-        public static CrowdResponse GiveExtraEmployeeOld(ControlClient client, CrowdRequest req)
-        {
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            NPC_Manager NPC = NPC_Manager.Instance;
-            GameData gd = GameData.Instance;
-            try
-            {
-                if (NPC.maxEmployees == NPC.NPCsEmployeesArray.Length) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Too many Employees");
-                else
-                {
-                    TestMod.ActionQueue.Enqueue(() =>
-                    {
-                        NPC.maxEmployees++;
-
-                        NPC.UpdateEmployeesNumberInBlackboard();
-                    });
-                }
-            }
-            catch (Exception e)
-            {
-
-            }
-            return new CrowdResponse(req.GetReqID(), status, message);
-        }
 
         public static CrowdResponse ComplainAboutFilth(ControlClient client, CrowdRequest req)
         {
@@ -183,7 +162,7 @@ namespace BepinControl
                 TestMod.ActionQueue.Enqueue(() =>
                 {
                     NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f);
-                    TestMod.SendHudMessage($"{req.viewer} just spawned some inventory!");
+                    TestMod.SendHudMessage($"{req.viewer} just spawned some inventory!", "green");
 
                   
                 });
@@ -197,6 +176,7 @@ namespace BepinControl
         }
         public static CrowdResponse GiveItemToPlayer(ControlClient client, CrowdRequest req)
         {
+
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
             PlayerObjectController playerRef = LobbyController.FindFirstObjectByType<LobbyController>().LocalplayerController;
@@ -387,6 +367,68 @@ namespace BepinControl
 
 
 
+        public static CrowdResponse ForceMath(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+
+                
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    TestMod.forceMath = true;
+                    // this doenst turn off yet, need to make it timed and needs proper checks
+                });
+
+                
+                
+
+
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+        public static CrowdResponse SpawnTrash(ControlClient client, CrowdRequest req)
+        {
+            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
+            string message = "";
+
+            try
+            {
+
+                TaskCompletionSource<CrowdResponse.Status> tcs = new();
+                TestMod.AddResponder(req.id, s => tcs.SetResult(s));
+
+                TestMod.ActionQueue.Enqueue(() =>
+                {
+                    TestMod.SpawnTrash(req.id, req.viewer);
+                    TestMod.SendHudMessage($"{req.viewer} just threw some trash on the ground!", "red");
+                });
+
+                status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                TestMod.RemoveResponder(req.id);
+               
+                
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
+                status = CrowdResponse.Status.STATUS_RETRY;
+            }
+
+            return new CrowdResponse(req.GetReqID(), status, message);
+        }
+
+
+
         public static CrowdResponse GiveExtraEmployee(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
@@ -411,7 +453,7 @@ namespace BepinControl
                             TestMod.SendSpawnEmployee(req.id, req.viewer);
                         }
                     }
-                    TestMod.SendHudMessage($"{req.viewer} spawned a employee!");
+                    TestMod.SendHudMessage($"{req.viewer} spawned a employee!", "green");
                 });
 
    
@@ -452,7 +494,7 @@ namespace BepinControl
                             TestMod.SendSpawnCustomer(req.id, req.viewer);
                         }
                     }
-                    TestMod.SendHudMessage($"{req.viewer} spawned a customer!");
+                    TestMod.SendHudMessage($"{req.viewer} spawned a customer!", "green");
                 });
 
                 //this part that waits for the response from the server
