@@ -42,6 +42,10 @@
     <Reference Include="BepInEx">
       <HintPath>resources\BepInEx.dll</HintPath>
     </Reference>
+    <Reference Include="HypeTrain, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Users\jakub\AppData\Roaming\CrowdControl-Apps\Mods\SupermarketTogether\BepInEx\plugins\CrowdControl\HypeTrain.dll</HintPath>
+    </Reference>
     <Reference Include="Mirror">
       <HintPath>resources\Mirror.dll</HintPath>
     </Reference>
@@ -73,6 +77,9 @@
     </Reference>
     <Reference Include="UnityEngine.AIModule">
       <HintPath>resources\UnityEngine.AIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>D:\SteamLibrary\steamapps\common\Supermarket Together\Supermarket Together_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>resources\UnityEngine.AudioModule.dll</HintPath>

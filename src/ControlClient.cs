@@ -108,6 +108,8 @@ namespace BepinControl
                 {"jailplayer", CrowdDelegates.JailPlayer },
                 {"complain_filth", CrowdDelegates.ComplainAboutFilth },
                 {"forcemath", CrowdDelegates.ForceMath },
+                {"event-hype-train", CrowdDelegates.SpawnHypeTrain }
+
             };
         }
 

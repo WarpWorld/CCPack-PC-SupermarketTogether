@@ -74,6 +74,10 @@ public class SupermarketTogether : SimpleTCPPack<SimpleTCPServerConnector>
         new("Send Black Tea", "give_142") { Description = "Spawn Black Tea for the Player", Category = "Items" },
         new("Send Peppermint", "give_143") { Description = "Spawn Peppermint for the Player", Category = "Items" },
         new("Send Mint", "give_144") { Description = "Spawn Mint for the Player", Category = "Items" },
-        new("Send Valerian", "give_145") { Description = "Spawn Valerian for the player", Category = "Items" }
+        new("Send Valerian", "give_145") { Description = "Spawn Valerian for the player", Category = "Items" },
+
+        new("Hype Train", "event-hype-train")
+
+
     };
 }

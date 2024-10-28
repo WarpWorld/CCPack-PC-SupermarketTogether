@@ -1,6 +1,8 @@
-﻿using System.Net.Sockets;
+﻿using System.Collections.Generic;
+using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
+using static UnityEngine.GraphicsBuffer;
 
 namespace BepinControl
 {
@@ -14,7 +16,8 @@ namespace BepinControl
         public int duration;
         public string type;
         public string viewer;
-        public Target[] targets;
+        public Target[] targets; // Adding Target support
+        public SourceDetails sourceDetails; // Adding sourceDetails support
 
         public static CrowdRequest Recieve(ControlClient client, Socket socket)
         {
@@ -45,7 +48,7 @@ namespace BepinControl
             REQUEST_TEST,
             REQUEST_START,
             REQUEST_STOP,
-            REQUEST_KEEPALIVE=255
+            REQUEST_KEEPALIVE = 255
         }
 
         public string GetReqCode()
@@ -90,11 +93,31 @@ namespace BepinControl
             public string name;    // Target's name
             public string avatar;  // Optional avatar URL
 
-            public override string ToString()
-            {
-                return $"Target(Service: {service}, ID: {id}, Name: {name}, Avatar: {avatar})";
-            }
+
         }
 
+        public class SourceDetails
+        {
+            public int total;
+            public int progress;
+            public int goal;
+            public Contribution[] top_contributions;
+            public Contribution last_contribution;
+            public int level;
+
+            public class Contribution
+            {
+                public string user_id;
+                public string user_login;
+                public string user_name;
+                public string type; // e.g., bits, subscription, etc.
+                public int total;
+
+
+            }
+
+
+
+        }
     }
 }
