@@ -1,0 +1,7 @@
+ManifestFileVersion: 0
+CRC: 1023281823
+AssetBundleManifest:
+  AssetBundleInfos:
+    Info_0:
+      Name: warpworld.hypetrain
+      Dependencies: {}
