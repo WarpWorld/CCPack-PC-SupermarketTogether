@@ -1,0 +1,146 @@
+ManifestFileVersion: 0
+CRC: 3951333063
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 6810a4935d6a43ce82612c5c6258a35b
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 42e28fd04d9868b079c87eaad67b0bdc
+  IncrementalBuildHash:
+    serializedVersion: 2
+    Hash: 6810a4935d6a43ce82612c5c6258a35b
+HashAppended: 0
+ClassTypes:
+- Class: 1
+  Script: {instanceID: 0}
+- Class: 4
+  Script: {instanceID: 0}
+- Class: 21
+  Script: {instanceID: 0}
+- Class: 23
+  Script: {instanceID: 0}
+- Class: 28
+  Script: {instanceID: 0}
+- Class: 33
+  Script: {instanceID: 0}
+- Class: 43
+  Script: {instanceID: 0}
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 54
+  Script: {instanceID: 0}
+- Class: 64
+  Script: {instanceID: 0}
+- Class: 65
+  Script: {instanceID: 0}
+- Class: 74
+  Script: {instanceID: 0}
+- Class: 82
+  Script: {instanceID: 0}
+- Class: 83
+  Script: {instanceID: 0}
+- Class: 91
+  Script: {instanceID: 0}
+- Class: 95
+  Script: {instanceID: 0}
+- Class: 114
+  Script: {fileID: 11500000, guid: 74e037577a3f9404394ed798515f4d20, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 00f74eec77b80db4487cbe4528ac6199, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 71c1514a6bd24e1e882cebbe1904ce04, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 1593e1bc8523c94438440c279d0e15fe, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 9541d86e2fd84c1d9990edf0852d74ab, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 1a7237aa5154e9947a76707957a122bc, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 8a89db49cca88dd4d991d0db336c5ca2, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 2c87366d06e02cd47834a2bb1fc51a9e, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: 6c01612789c888148acb539a25316f8d, type: 3}
+- Class: 115
+  Script: {instanceID: 0}
+- Class: 128
+  Script: {instanceID: 0}
+- Class: 135
+  Script: {instanceID: 0}
+- Class: 224
+  Script: {instanceID: 0}
+SerializeReferenceClassIdentifiers:
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.FaceInfo_Legacy
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.FontAssetCreationSettings
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.KerningTable
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.TMP_Character
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.TMP_FontFeatureTable
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.TMP_FontWeightPair
+- AssemblyName: Unity.TextMeshPro
+  ClassName: TMPro.VertexGradient
+- AssemblyName: UnityEngine.CoreModule
+  ClassName: UnityEngine.Events.PersistentCallGroup
+- AssemblyName: UnityEngine.TextCoreFontEngineModule
+  ClassName: UnityEngine.TextCore.FaceInfo
+- AssemblyName: UnityEngine.TextCoreFontEngineModule
+  ClassName: UnityEngine.TextCore.Glyph
+- AssemblyName: UnityEngine.TextCoreFontEngineModule
+  ClassName: UnityEngine.TextCore.GlyphMetrics
+- AssemblyName: UnityEngine.TextCoreFontEngineModule
+  ClassName: UnityEngine.TextCore.GlyphRect
+- AssemblyName: UnityEngine.UI
+  ClassName: UnityEngine.UI.MaskableGraphic/CullStateChangedEvent
+Assets:
+- Assets/HypeTrain/Bits/1Bit.prefab
+- Assets/HypeTrain/KenneyTrain/FBX format/Textures/colormap-cc.png
+- Assets/HypeTrain/Bits/10000Bit.prefab
+- Assets/HypeTrain/Materials/HypeTrainLocomotiveWheel.mat
+- Assets/HypeTrain/Audio/car-wheels-clank2.wav
+- Assets/HypeTrain/Bits/100Bit.prefab
+- Assets/Fonts/Poppins-Bold.ttf
+- Packages/com.unity.textmeshpro/Editor Resources/Gizmos/TMP - Text Component Icon.psd
+- Assets/HypeTrain/Animations/Locomotive.controller
+- Assets/HypeTrain/Bits/5000Bit.prefab
+- Assets/HypeTrain/Animations/Hide.anim
+- Assets/HypeTrain/KenneyTrain/FBX format/train-diesel-box-b.fbx
+- Assets/HypeTrain/Audio/car-wheels.wav
+- Assets/TextMesh Pro/Shaders/TMP_Bitmap.shader
+- Assets/HypeTrain/Animations/Show.anim
+- Assets/HypeTrain/KenneyTrain/FBX format/Textures/colormap.png
+- Assets/HypeTrain/Bits/100000bit.fbx
+- Assets/HypeTrain/Bits/1000Bit.prefab
+- Assets/HypeTrain/Bits/5000bit.fbx
+- Assets/HypeTrain/Bits/1000bit.fbx
+- Assets/HypeTrain/Bits/1bit.fbx
+- Assets/HypeTrain/Audio/locomotive.ogg
+- Assets/HypeTrain/Materials/HypeTrainLocomotive.mat
+- Assets/Fonts/Poppins-Bold.asset
+- Assets/HypeTrain/KenneyTrain/FBX format/Textures/colormap-cc-wheel.png
+- Assets/HypeTrain/Audio/car-wheels-clank1.wav
+- Assets/HypeTrain/Bits/Death.anim
+- Assets/HypeTrain/HypeTrain.prefab
+- Assets/HypeTrain/Bits/10000bit.fbx
+- Assets/HypeTrain/Animations/train-locomotive-b.controller
+- Assets/HypeTrain/KenneyTrain/FBX format/train-locomotive-b.fbx
+- Assets/HypeTrain/Bits/100000Bit.prefab
+- Packages/com.unity.textmeshpro/Editor Resources/Gizmos/TMP - Font Asset Icon.psd
+- Assets/Fonts/Poppins-Regular.asset
+- Assets/HypeTrain/Materials/HypeTrainLogic.shadersubgraph
+- Assets/HypeTrain/Audio/car-wheels-clank0.wav
+- Assets/HypeTrain/Materials/HypeTrainBox.mat
+- Assets/HypeTrain/KenneyTrain/FBX format/train-carriage-box.fbx
+- Assets/HypeTrain/Bits/100bit.fbx
+- Assets/HypeTrain/Materials/HypeTrainURP.shadergraph
+- Assets/Fonts/Poppins-Regular.ttf
+- Assets/HypeTrain/Bits/Bit.controller
+- Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader
+- Assets/HypeTrain/Animations/Wobble.anim
+- Assets/HypeTrain/Materials/HypeTrainBuiltIn.shadergraph
+Dependencies: []
