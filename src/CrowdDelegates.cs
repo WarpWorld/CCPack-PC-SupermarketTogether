@@ -96,75 +96,47 @@ namespace BepinControl
             }
         }
 
-        public void Spawn_HypeTrain(Vector3 position, Quaternion rotation, CrowdRequest.SourceDetails sourceDetails)
+        public static void Spawn_HypeTrain(CrowdRequest.SourceDetails sourceDetails, Vector3 playerPosition, Quaternion playerRotation, Vector3 playerForward, Transform playerTransform)
         {
-            if (hypetrainPrefab != null)
+            TestMod.ActionQueue.Enqueue(() =>
             {
-                /*for (int i = 0; i < 32; ++i)
+                CrowdDelegates crowdDelegatesInstance = new CrowdDelegates();
+                crowdDelegatesInstance.LoadAssetsFromBundle();
+
+                // Calculate the left direction using the player's right vector
+                Vector3 leftDirection = -playerTransform.right;  // Get the player's left direction by negating the right direction
+                float leftOffset = 5f;  // Distance to the left of the player
+                float heightOffset = 0.5f;  // Set a small positive offset to ensure it is not underground
+
+                // The final spawn position will be to the left of the player and slightly above the ground level
+                Vector3 spawnPosition = playerPosition + leftDirection * leftOffset + new Vector3(0, heightOffset, 0);
+
+                // Ensure the rotation is aligned with the player's forward direction
+                Quaternion spawnRotation = Quaternion.LookRotation(playerForward, Vector3.up);  // Align the train's forward direction with the player's forward direction
+
+                if (hypetrainPrefab != null)
                 {
-                    try
+                    // Instantiate the HypeTrain at the calculated position with the adjusted rotation
+                    HypeTrain hypeTrain = UnityEngine.Object.Instantiate(hypetrainPrefab, spawnPosition, spawnRotation).GetComponent<HypeTrain>();
+                    if (hypeTrain == null)
                     {
-                        Debug.Log($"Layer {i} is: {LayerMask.LayerToName(i)}");
-						for (int j = 0; j < 32; ++j)
-						{
-							try
-							{
-                                if (i != j)
-                                {
-                                    Debug.Log($"Collide with  {LayerMask.LayerToName(j)}: {Physics.GetIgnoreLayerCollision(i, j)}");
-                                }
-							}
-							catch { }
-						}
-					}
-                    catch { }
-                }*/
-
-                HypeTrain hypeTrain = UnityEngine.Object.Instantiate(hypetrainPrefab, position, rotation).GetComponent<HypeTrain>();
-                if (null == hypeTrain)
-                {
-                    Debug.LogError("No Train?");
-                }
-                else
-                {
-                    Vector3 initialStartOffset = new Vector3(-14.5f, 0.2f, 6.0f); // Further away by 2 units
-                    Vector3 initialStopOffset = new Vector3(14.5f, 0.2f, 6.0f); // Further away by 2 units
-
-                    Transform playerCamera = Camera.main?.transform;
-
-                    if (playerCamera == null)
-                    {
-                        playerCamera = UnityEngine.Object.FindObjectOfType<Camera>()?.transform;
-                        if (playerCamera == null)
-                        {
-                            return;
-                        }
+                        Debug.LogError("No Train?");
+                        return;
                     }
-                    PlayerObjectController playerRef = LobbyController.FindFirstObjectByType<LobbyController>().LocalplayerController;
 
-                    Transform playerTransform = playerRef.transform;
-
-                    Vector3 startPos = playerTransform.position + playerCamera.TransformDirection(initialStartOffset);
-                    startPos.y = playerTransform.position.y;
-
-                    Vector3 stopPos = playerTransform.position + playerCamera.TransformDirection(initialStopOffset);
-                    stopPos.y = playerTransform.position.y;
-
+                    // Setup the hype train data (contributions)
                     List<HypeTrainBoxData> hypeTrainBoxDataList = new List<HypeTrainBoxData>();
-
                     foreach (var contribution in sourceDetails.top_contributions)
                     {
                         hypeTrainBoxDataList.Add(new HypeTrainBoxData()
                         {
                             name = contribution.user_name,
                             box_color = ConvertUserNameToColor(contribution.user_name),
-                            bit_amount = contribution.type == "bits" ? contribution.total : 0 // Only set bit_amount if the contribution is bits
+                            bit_amount = contribution.type == "bits" ? contribution.total : 0
                         });
                     }
 
                     bool isLastContributionInTop = sourceDetails.top_contributions.Any(contribution => contribution.user_id == sourceDetails.last_contribution.user_id);
-
-                    // Only add last train car if the last_contribution user_id is not in top_contributions
                     if (!isLastContributionInTop)
                     {
                         hypeTrainBoxDataList.Add(new HypeTrainBoxData()
@@ -175,27 +147,33 @@ namespace BepinControl
                         });
                     }
 
+                    // Set speed of the Hype Train based on the level
                     float defaultSpeed = 1f;
                     float speedIncrease = sourceDetails.level * 0.1f;
                     float distance_per_second = Mathf.Min(defaultSpeed + speedIncrease, 10f);
 
-                    // Now call StartHypeTrain with the generated hypeTrainBoxDataList
-                    hypeTrain.StartHypeTrain(startPos, stopPos, hypeTrainBoxDataList.ToArray(), playerTransform,
+                    // Define the stop position to be in front of the player, using their forward direction
+                    Vector3 stopPosition = playerPosition + playerForward * 10;
+
+                    // Start the HypeTrain moving from the left spawn position to the stop position
+                    hypeTrain.StartHypeTrain(spawnPosition, stopPosition, hypeTrainBoxDataList.ToArray(), playerTransform,
                     new HypeTrainOptions()
                     {
-                        //train_layer = LayerMask.NameToLayer(""),
                         max_bits_per_car = 100,
-                        //volume = SoundManager.SFXVolume,
                         distance_per_second = distance_per_second
                     });
 
+                    TestMod.mls.LogInfo($"Spawned Hype Train at level {sourceDetails.level}!");
                     TestMod.SendHudMessage($"Level {sourceDetails.level} Hype Train!", "green");
-
-
                 }
-            }
-
+            });
         }
+
+
+
+
+
+
 
 
         public static CrowdResponse TurnOnLights(ControlClient client, CrowdRequest req)
@@ -454,23 +432,6 @@ namespace BepinControl
                     NS.CmdSetSupermarketText(newName);
 
 
-                  
-
-                   // TrashSpawn trashSpawn = TrashSpawn.FindFirstObjectByType<TrashSpawn>();
-                    //trashSpawn.OnStartClient();
-                    
-
-
-                    TrashSpawn trashSpawn = TrashSpawn.FindObjectOfType<TrashSpawn>();
-                    if (trashSpawn != null)
-                    {
-                        TestMod.mls.LogInfo("Spawn some trash?");
-                        trashSpawn.OnStartClient();
-                    }
-
-
-
-
 
                 });
  
@@ -484,8 +445,8 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
+        
 
-     
         public static CrowdResponse JailPlayer(ControlClient client, CrowdRequest req)
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
@@ -506,7 +467,7 @@ namespace BepinControl
                         PlayerObjectController playerInfo = lobbyController.LocalPlayerObject.GetComponentInChildren<PlayerObjectController>();
                         if (playerInfo != null)
                         {
-                            TestMod.JailPlayer(req.id, playerInfo.PlayerName, req.viewer);
+                            TestMod.JailPlayer(req.id, playerInfo.PlayerSteamID, req.viewer);
                         }
                     }
                 });
@@ -639,30 +600,41 @@ namespace BepinControl
             Transform playerCamera = Camera.main?.transform ?? UnityEngine.Object.FindObjectOfType<Camera>()?.transform;
             Vector3 forwardDirection = playerCamera.forward;
 
-            if (!playerCamera) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Unable to spawn item.");
 
+            if (!playerRef || !playerCamera) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Unable to spawn hype train.");
 
-            TestMod.ActionQueue.Enqueue(() =>
+            var serverObjects = NetworkClient.spawned;
+            PlayerObjectController localPlayerInfo = null;
+
+            foreach (var kvp in serverObjects)
             {
+                NetworkIdentity serverIdentity = kvp.Value;
 
-                CrowdDelegates crowdDelegatesInstance = new CrowdDelegates();
-
-                crowdDelegatesInstance.LoadAssetsFromBundle();
-
-                for (int i = 0; i < 1; i++)
+                if (serverIdentity.gameObject.name.Contains("Player"))
                 {
-                    float spawnDifference = UnityEngine.Random.Range(0.1f, 1.0f);
-                    Vector3 spawnPosition = new Vector3(
-                        playerCamera.position.x + forwardDirection.x * spawnDifference,
-                        playerCamera.position.y + 1.0f,
-                        playerCamera.position.z + forwardDirection.z * spawnDifference
-                    );
+                    PlayerObjectController playerInfo = serverIdentity.gameObject.GetComponentInChildren<PlayerObjectController>();
 
+                    TestMod.mls.LogInfo($"player PlayerSteamID: {playerInfo.PlayerSteamID}");
 
-                    crowdDelegatesInstance.Spawn_HypeTrain(spawnPosition, Quaternion.identity, req.sourceDetails);
-
+                    if (playerInfo != null && serverIdentity.isLocalPlayer)  // Check if this is the local player
+                    {
+                        if (playerInfo.PlayerSteamID >= 1)
+                        {
+                            localPlayerInfo = playerInfo;
+                            break;  // Exit the loop as we've found the local player
+                        }
+                    }
                 }
-            });
+            }
+
+     
+
+            if (!localPlayerInfo) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Unable to spawn hype train.");
+
+
+
+
+            TestMod.SendSpawnTrain(req.id, localPlayerInfo.PlayerSteamID, req);
 
             return new CrowdResponse(req.GetReqID(), status, message);
         }
