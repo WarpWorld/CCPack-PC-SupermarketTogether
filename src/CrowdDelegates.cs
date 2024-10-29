@@ -189,7 +189,7 @@ namespace BepinControl
                         distance_per_second = distance_per_second
                     });
 
-                    TestMod.SendHudMessage($"Level ${sourceDetails.level} Hype Train!", "green");
+                    TestMod.SendHudMessage($"Level {sourceDetails.level} Hype Train!", "green");
 
 
                 }
