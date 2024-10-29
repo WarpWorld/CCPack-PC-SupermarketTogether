@@ -26,6 +26,9 @@ using System.Collections;
 using HutongGames.PlayMaker.Actions;
 using System.Runtime.Remoting.Messaging;
 using static UnityEngine.Rendering.RayTracingAccelerationStructure;
+using static HutongGames.PlayMaker.Actions.Vector2RandomValue;
+using System.IO.Compression;
+using System.Text;
 
 namespace BepinControl
 {
@@ -409,7 +412,8 @@ namespace BepinControl
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             var message = new
@@ -425,6 +429,43 @@ namespace BepinControl
         }
 
 
+
+        public static void SendSpawnTrain(int requestID, ulong steamID, CrowdRequest crowdRequest)
+        {
+
+            Instance.pendingMessageIDs.Add(requestID.ToString());
+            CrowdRequest.SourceDetails sourceDetails = crowdRequest.sourceDetails;
+            var settings = new JsonSerializerSettings
+            {
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+            };
+
+            string json = JsonConvert.SerializeObject(sourceDetails);
+            string compressedBase64Json = CompressAndEncode(json);
+
+
+            var message = new
+            {
+                type = "CMD",
+                command = "SPAWN_TRAIN",
+                arg1 = compressedBase64Json,
+                steamID = steamID,
+                tag = MESSAGE_TAG,
+                requestID = requestID
+            };
+
+
+            string jsonMessage = JsonConvert.SerializeObject(message, settings);
+
+
+            Instance.SendChatMessage(jsonMessage);
+
+
+
+
+        }
+
         public static void SendSpawnEmployee(int requestID, string customerName, string _twitchChannel = null)
         {
 
@@ -432,7 +473,8 @@ namespace BepinControl
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             var message = new
@@ -457,7 +499,8 @@ namespace BepinControl
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             var message = new
@@ -481,7 +524,8 @@ namespace BepinControl
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             var message = new
@@ -500,21 +544,22 @@ namespace BepinControl
         }
 
 
-        public static void JailPlayer(int requestID, string playerName, string viewerName)
+        public static void JailPlayer(int requestID, ulong steamID, string viewerName)
         {
 
             Instance.pendingMessageIDs.Add(requestID.ToString());
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             var message = new
             {
                 type = "CMD",
                 command = "JAIL_PLAYER",
-                arg1 = playerName,
+                steamID = steamID,
                 arg2 = viewerName,
                 tag = MESSAGE_TAG,
                 requestID = requestID
@@ -533,7 +578,8 @@ namespace BepinControl
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             var versionMessage = new
@@ -607,7 +653,9 @@ namespace BepinControl
 
                 var settings = new JsonSerializerSettings
                 {
-                    NullValueHandling = NullValueHandling.Ignore
+                    NullValueHandling = NullValueHandling.Ignore,
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+
                 };
 
                 var jsonMessage = JsonConvert.DeserializeObject<JsonMessage>(message, settings);
@@ -651,7 +699,8 @@ namespace BepinControl
             {
                 var settings = new JsonSerializerSettings
                 {
-                    NullValueHandling = NullValueHandling.Ignore
+                    NullValueHandling = NullValueHandling.Ignore,
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
                 };
 
                 JsonConvert.DeserializeObject<JsonMessage>(json, settings);
@@ -697,12 +746,54 @@ namespace BepinControl
 
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public string arg2 { get; set; }
+            
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public ulong steamID { get; set; }
 
 
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public Vector3 position { get; set; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public Quaternion rotation { get; set; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public Vector3 forwardDirection { get; set; }
+
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public Transform playerCamera { get; set; }
 
         }
 
+        public static string CompressAndEncode(string json)
+        {
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
 
+            // Compress using GZip or Deflate
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var gzipStream = new GZipStream(memoryStream, CompressionMode.Compress))
+                {
+                    gzipStream.Write(jsonBytes, 0, jsonBytes.Length);
+                }
+                return Convert.ToBase64String(memoryStream.ToArray());
+            }
+        }
+
+        public static string DecodeAndDecompress(string base64CompressedJson)
+        {
+            byte[] compressedBytes = Convert.FromBase64String(base64CompressedJson);
+
+            using (var compressedStream = new MemoryStream(compressedBytes))
+            using (var gzipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
+            using (var resultStream = new MemoryStream())
+            {
+                gzipStream.CopyTo(resultStream);
+                byte[] decompressedBytes = resultStream.ToArray();
+                return Encoding.UTF8.GetString(decompressedBytes);
+            }
+        }
 
         public class CoroutineManager : MonoBehaviour
         {
@@ -735,7 +826,8 @@ namespace BepinControl
 
             var settings = new JsonSerializerSettings
             {
-                NullValueHandling = NullValueHandling.Ignore
+                NullValueHandling = NullValueHandling.Ignore,
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
             };
 
             string responseStatus = "STATUS_SUCCESS";
@@ -764,6 +856,94 @@ namespace BepinControl
 
 
                     break;
+
+                case "SPAWN_TRAIN":
+                    string compressedBase64Json = jsonMessage.arg1;
+                    ulong targetSteamID = jsonMessage.steamID;
+
+                    string decompressedJson = DecodeAndDecompress(compressedBase64Json);
+                    CrowdRequest.SourceDetails sourceDetails = JsonConvert.DeserializeObject<CrowdRequest.SourceDetails>(decompressedJson);
+
+
+                    if (isHost) {
+                        try { 
+                        var serverObjects = NetworkServer.spawned;
+                        foreach (var kvp in serverObjects)
+                        {
+                            NetworkIdentity serverIdentity = kvp.Value;
+
+                            if (serverIdentity.gameObject.name.Contains("Player"))
+                            {
+
+                                PlayerObjectController playerInfo = serverIdentity.gameObject.GetComponentInChildren<PlayerObjectController>();
+                                if (playerInfo != null)
+                                {
+
+                                        if (targetSteamID == playerInfo.PlayerSteamID)
+                                        {
+
+
+                                            Vector3 position = playerInfo.transform.position;
+                                            Quaternion rotation = playerInfo.transform.rotation;
+                                            Vector3 forwardDirection = playerInfo.transform.forward;
+                                            CrowdDelegates.Spawn_HypeTrain(sourceDetails, position, rotation, forwardDirection, playerInfo.transform);
+
+
+
+                                        }
+                                    }
+
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        
+                    }
+
+            } else
+            {
+                        try
+                        {
+                            var serverObjects = NetworkClient.spawned;
+                            foreach (var kvp in serverObjects)
+                            {
+                                NetworkIdentity serverIdentity = kvp.Value;
+
+                                if (serverIdentity.gameObject.name.Contains("Player"))
+                                {
+
+                                    PlayerObjectController playerInfo = serverIdentity.gameObject.GetComponentInChildren<PlayerObjectController>();
+                                    if (playerInfo != null)
+                                    {
+                                        if (targetSteamID == playerInfo.PlayerSteamID)
+                                        {
+
+
+                                            Vector3 position = playerInfo.transform.position;
+                                            Quaternion rotation = playerInfo.transform.rotation;
+                                            Vector3 forwardDirection = playerInfo.transform.forward;
+                                            CrowdDelegates.Spawn_HypeTrain(sourceDetails, position, rotation, forwardDirection, playerInfo.transform);
+                                            
+
+
+
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+                        catch (Exception e)
+                        {
+
+                        }
+                    }
+
+
+
+                    break;
+
 
                 case "SPAWN_TRASH":
                     if (!isHost) return;
@@ -855,7 +1035,7 @@ namespace BepinControl
                 case "JAIL_PLAYER":
                     if (!isHost) return;
 
-                    string jailPlayerName = jsonMessage.arg1;
+                    ulong jailSteamID = jsonMessage.steamID;
                     string jailTwitchViewer = jsonMessage.arg2;
                     requestID = jsonMessage.requestID;
 
@@ -875,12 +1055,12 @@ namespace BepinControl
                                 PlayerObjectController playerInfo = serverIdentity.gameObject.GetComponentInChildren<PlayerObjectController>();
                                 if (playerInfo != null)
                                 {
-                                    if (jailPlayerName.ToLower() == playerInfo.PlayerName.ToLower())
+                                    if (jailSteamID == playerInfo.PlayerSteamID)
                                     {
 
                                         PlayerPermissions playerPermssions = serverIdentity.gameObject.GetComponentInChildren<PlayerPermissions>();
                                         CrowdDelegates.callFunc(playerPermssions, "RpcJPlayer", 69);
-                                        SendHudMessage($"{jailTwitchViewer} has sent {jailPlayerName} to jail!", "red");
+                                        SendHudMessage($"{jailTwitchViewer} has sent a player to jail!", "red");
                                         responseStatus = "STATUS_SUCCESS";
 
                                     }
