@@ -37,7 +37,7 @@ namespace BepinControl
     {
         private const string modGUID = "WarpWorld.CrowdControl";
         private const string modName = "Crowd Control";
-        private const string modVersion = "1.1.0.0";
+        private const string modVersion = "1.1.1.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
         public static ManualLogSource mls;
@@ -1696,6 +1696,7 @@ namespace BepinControl
                 {
                     //possible twitch timeout functionality later?
                     //mls.LogInfo($"HIT {__instance.name} WITH A BROOOM");
+                    ControlClient.TimeoutUser(__instance.name, 1, "broomed!");
                 }
 
             }

@@ -28,6 +28,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using UnityEngine;
+using static BepinControl.CrowdResponse;
 
 
 namespace BepinControl
@@ -163,6 +164,21 @@ namespace BepinControl
             res.code = code;
             res.Send(Socket);
         }
+
+
+        public static void TimeoutUser(string twitchName, int duration, string reason )
+        {
+
+            var message = new GenericMessage(
+                type: 16,
+                internalFlag: true,
+                eventType: "timeoutUser",
+                data: new { twitchName, duration, reason });
+
+            message.Send(Socket);
+
+        }
+
 
         private void ClientLoop()
         {

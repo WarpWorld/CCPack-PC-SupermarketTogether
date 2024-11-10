@@ -54,5 +54,35 @@ namespace BepinControl
             outData[tmpData.Length] = 0;
             socket.Send(outData);
         }
+
+        public class GenericMessage
+        {
+            public int type { get; set; }
+            public bool internalFlag { get; set; }
+            public string eventType { get; set; }
+            public object data { get; set; }
+
+            public GenericMessage(int type, bool internalFlag, string eventType, object data)
+            {
+                this.type = type;
+                this.internalFlag = internalFlag;
+                this.eventType = eventType;
+                this.data = data;
+            }
+
+            public void Send(Socket socket)
+            {
+                string json = JsonConvert.SerializeObject(this, Formatting.Indented);
+
+                byte[] tmpData = Encoding.ASCII.GetBytes(json);
+                byte[] outData = new byte[tmpData.Length + 1];
+                Buffer.BlockCopy(tmpData, 0, outData, 0, tmpData.Length);
+                outData[tmpData.Length] = 0;
+
+                socket.Send(outData);
+            }
+        }
+
+
     }
 }
