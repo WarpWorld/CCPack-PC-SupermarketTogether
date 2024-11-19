@@ -100,6 +100,14 @@ namespace BepinControl
         {
             TestMod.ActionQueue.Enqueue(() =>
             {
+
+                if (sourceDetails.top_contributions.Length == 0)
+                {
+                    TestMod.mls.LogInfo("No top_contributions?");
+                    return;
+                }
+
+
                 CrowdDelegates crowdDelegatesInstance = new CrowdDelegates();
                 crowdDelegatesInstance.LoadAssetsFromBundle();
 
@@ -114,13 +122,14 @@ namespace BepinControl
                 // Ensure the rotation is aligned with the player's forward direction
                 Quaternion spawnRotation = Quaternion.LookRotation(playerForward, Vector3.up);  // Align the train's forward direction with the player's forward direction
 
+
                 if (hypetrainPrefab != null)
                 {
                     // Instantiate the HypeTrain at the calculated position with the adjusted rotation
                     HypeTrain hypeTrain = UnityEngine.Object.Instantiate(hypetrainPrefab, spawnPosition, spawnRotation).GetComponent<HypeTrain>();
                     if (hypeTrain == null)
                     {
-                        Debug.LogError("No Train?");
+                        TestMod.mls.LogInfo("No Train?");
                         return;
                     }
 
@@ -136,8 +145,9 @@ namespace BepinControl
                         });
                     }
 
-                    bool isLastContributionInTop = sourceDetails.top_contributions.Any(contribution => contribution.user_id == sourceDetails.last_contribution.user_id);
-                    if (!isLastContributionInTop)
+                    bool isLastContributionInTop = sourceDetails.last_contribution != null;
+
+                    if (isLastContributionInTop)
                     {
                         hypeTrainBoxDataList.Add(new HypeTrainBoxData()
                         {
@@ -658,12 +668,18 @@ namespace BepinControl
                         if (req.targets[0].service == "twitch")
                         {
                             TestMod.SendSpawnCustomer(req.id, req.viewer, req.targets[0].name);
+
+                            if (!TestMod.spawnedCustomers.Contains(req.viewer))
+                            {
+                                TestMod.spawnedCustomers.Add(req.viewer.ToLower());
+                            }
                         }
                         else
                         {
                             TestMod.SendSpawnCustomer(req.id, req.viewer);
                         }
                     }
+
                     TestMod.SendHudMessage($"{req.viewer} spawned a customer!", "green");
                 });
 
