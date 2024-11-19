@@ -74,6 +74,7 @@ namespace BepinControl
 
         private static List<string> allowedUsernames = new() { "jaku", "s4turn", "crowdcontrol", "theunknowncod3r" };
         private static List<string> twitchChannels = new();
+        public static List<string> spawnedCustomers = new();
 
 
 
@@ -746,7 +747,10 @@ namespace BepinControl
 
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public string arg2 { get; set; }
-            
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public string channelName { get; set; }
+
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public ulong steamID { get; set; }
 
@@ -1167,6 +1171,7 @@ namespace BepinControl
                                 command = "SPAWN_CUS",
                                 arg1 = customerName,
                                 arg2 = _customerNetID.ToString(),
+                                channelName = _twitchChannel,
                                 tag = MESSAGE_TAG
                             };
                             //mls.LogInfo($"Broadcasting {customerName} to NPC {_customerNetID.ToString()}");
@@ -1468,6 +1473,7 @@ namespace BepinControl
                     case "SPAWN_EMP":
                         string customerName = jsonMessage.arg1;
                         string customerNetID = jsonMessage.arg2;
+                        string channelName = jsonMessage.channelName;
 
                         AddOrUpdateSpawnedObjects(customerNetID, customerName);
 
@@ -1487,7 +1493,7 @@ namespace BepinControl
                                     namePlate.transform.SetParent(localObject.transform);
                                     namePlate.transform.localPosition = Vector3.up * (objectHeight + 0.1f);
 
-                                    localObject.transform.name = foundCustomerName;
+                                    localObject.transform.name = foundCustomerName + "-" + channelName;
 
                                     TextMeshPro tmp = namePlate.AddComponent<TextMeshPro>();
                                     tmp.text = foundCustomerName;
@@ -1686,6 +1692,8 @@ namespace BepinControl
 
 
 
+
+
         [HarmonyPatch(typeof(NPC_Info), "AuxiliarAnimationPlay")]
         public class Patch_NPC_Info_AuxiliarAnimationPlay
         {
@@ -1694,9 +1702,18 @@ namespace BepinControl
 
                 if (__instance.name.Length >= 1 && isChatConnected && !__instance.name.Contains("(Clone)"))
                 {
-                    //possible twitch timeout functionality later?
-                    //mls.LogInfo($"HIT {__instance.name} WITH A BROOOM");
-                    ControlClient.TimeoutUser(__instance.name, 1, "broomed!");
+                    string viewerName = __instance.name.Split('-')[0].ToLower();
+
+                    // If the viewername + twitchChannel = __instance.name, then that user was spawned in that channel
+                    if (viewerName + "-" + twitchChannel.ToLower() == __instance.name.ToLower())
+                    {
+                        if (TestMod.spawnedCustomers.Contains(viewerName))
+                        {
+                            mls.LogInfo($"HIT {viewerName} WITH A BROOOM");
+                            ControlClient.TimeoutUser(viewerName, 1, "broomed!");
+                        }
+                    } 
+                    
                 }
 
             }

@@ -169,6 +169,7 @@ namespace BepinControl
         public static void TimeoutUser(string twitchName, int duration, string reason )
         {
 
+            if (Socket == null) return;
             var message = new GenericMessage(
                 type: 16,
                 internalFlag: true,
