@@ -227,7 +227,11 @@ namespace BepinControl
             {
                 Money = int.Parse(Amount[1]);
             }
-            if (Amount[0].StartsWith("take") && GD.gameFunds < Money) status = CrowdResponse.Status.STATUS_RETRY;
+            TestMod.mls.LogInfo($"Has {GD.gameFunds.ToString()} give/take: {Money}");
+            if (Amount[0].StartsWith("take") && GD.gameFunds < Money)
+            {
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "");
+            }
 
             try
             {
