@@ -314,7 +314,6 @@ namespace BepinControl
                     NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f);
                     TestMod.SendHudMessage($"{req.viewer} just spawned some inventory!", "green");
 
-                  
                 });
             }
             catch (Exception e)
@@ -322,6 +321,7 @@ namespace BepinControl
                 TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
                 status = CrowdResponse.Status.STATUS_RETRY;
             }
+
             return new CrowdResponse(req.GetReqID(), status, message);
         }
         public static CrowdResponse GiveItemToPlayer(ControlClient client, CrowdRequest req)
@@ -543,10 +543,19 @@ namespace BepinControl
                 TestMod.ActionQueue.Enqueue(() =>
                 {
                     TestMod.SpawnTrash(req.id, req.viewer);
-                    TestMod.SendHudMessage($"{req.viewer} just threw some trash on the ground!", "red");
                 });
 
                 status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+
+
+                if (tcs.Task.Result.ToString() == "STATUS_SUCCESS")
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        TestMod.SendHudMessage($"{req.viewer} just threw some trash on the ground!", "red");
+                    });
+                }
+
                 TestMod.RemoveResponder(req.id);
                
                 
@@ -586,11 +595,18 @@ namespace BepinControl
                             TestMod.SendSpawnEmployee(req.id, req.viewer);
                         }
                     }
-                    TestMod.SendHudMessage($"{req.viewer} spawned a employee!", "green");
+                    
                 });
 
    
                 status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+                if (tcs.Task.Result.ToString() == "STATUS_SUCCESS")
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        TestMod.SendHudMessage($"{req.viewer} spawned a employee!", "green");
+                    });
+                }
                 TestMod.RemoveResponder(req.id);
             }
             catch (Exception e)
@@ -684,13 +700,22 @@ namespace BepinControl
                         }
                     }
 
-                    TestMod.SendHudMessage($"{req.viewer} spawned a customer!", "green");
                 });
 
                 //this part that waits for the response from the server
                 //DO NOT PUT THIS INSIDE ANYTHING PASSED TO ActionQueue.Enqueue
                 //IT COULD EASILY DEADLOCK SOMETHING MAYBE DEPENDING ON THE GAME
                 status = tcs.Task.Wait(SERVER_TIMEOUT) ? tcs.Task.Result : CrowdResponse.Status.STATUS_RETRY;
+
+
+                if (tcs.Task.Result.ToString() == "STATUS_SUCCESS")
+                {
+                    TestMod.ActionQueue.Enqueue(() =>
+                    {
+                        TestMod.SendHudMessage($"{req.viewer} spawned a customer!", "green");
+                    });
+                }
+
                 TestMod.RemoveResponder(req.id);
             }
             catch (Exception e)
