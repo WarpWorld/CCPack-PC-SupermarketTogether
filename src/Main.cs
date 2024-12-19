@@ -37,7 +37,7 @@ namespace BepinControl
     {
         private const string modGUID = "WarpWorld.CrowdControl";
         private const string modName = "Crowd Control";
-        private const string modVersion = "1.1.3.0";
+        private const string modVersion = "1.1.4.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
         public static ManualLogSource mls;
@@ -1238,8 +1238,8 @@ namespace BepinControl
                         try
                         {
 
-
                             NPC_Manager npcManager = NPC_Manager.FindFirstObjectByType<NPC_Manager>();
+                            /*
 
                             Vector3 position = npcManager.employeeSpawnpoint.transform.position + new Vector3(UnityEngine.Random.Range(-1f, 1f), 0f, UnityEngine.Random.Range(-1f, 1f));
                             GameObject gameObject = GameObject.Instantiate<GameObject>(npcManager.npcAgentPrefab, position, Quaternion.identity);
@@ -1262,21 +1262,43 @@ namespace BepinControl
                             uint _npcNetID = networkIdentity.netId;
                             if (_npcNetID == 0) return;
 
-                            npcManager.maxEmployees++;
-                            npcManager.UpdateEmployeesNumberInBlackboard();
+                            
+                            */
+                            EmployeesDataGeneration employeesDataGeneration = EmployeesDataGeneration.FindFirstObjectByType<EmployeesDataGeneration>();
 
 
-                            AddOrUpdateSpawnedObjects(_npcNetID.ToString(), customerName);
+                            mls.LogMessage("Number of hired employee" + npcManager.numberOfHiredEmployees);
+                            mls.LogMessage("Number of maxEmployees" + npcManager.maxEmployees);
+                            if (npcManager.numberOfHiredEmployees > 9 )
+                            {
+                                responseStatus = "STATUS_FAILURE";
+                            }
+                            else
+                            {
+                                if (npcManager.maxEmployees == npcManager.numberOfHiredEmployees && npcManager.maxEmployees < 9)
+                                {
+                                    npcManager.maxEmployees++;
+                                }
+                                employeesDataGeneration.HireEmployee(npcManager.numberOfHiredEmployees + 1, customerName.ToString());
+                            }
+                            //npcManager.numberOfHiredEmployees = 1;
+                            //CrowdDelegates.setProperty(npcManager, "numberOfHiredEmployees", npcManager.maxEmployees);
+                            //npcManager.UpdateEmployeesNumberInBlackboard();
 
+
+                            //AddOrUpdateSpawnedObjects(_npcNetID.ToString(), customerName);
+
+                            /*
                             var spawn_msg = new JsonMessage
                             {
                                 type = "BST",
                                 command = "SPAWN_EMP",
                                 arg1 = customerName,
-                                arg2 = _npcNetID.ToString(),
+                                //arg2 = _npcNetID.ToString(),
                                 tag = MESSAGE_TAG
                             };
-                            Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
+                            */
+                            //Instance.SendChatMessage(JsonConvert.SerializeObject(spawn_msg, settings));
 
 
                         }
@@ -1470,7 +1492,7 @@ namespace BepinControl
                 {
                     case "SPAWN_TRASH":
                     case "SPAWN_CUS":
-                    case "SPAWN_EMP":
+                    //case "SPAWN_EMP":
                         string customerName = jsonMessage.arg1;
                         string customerNetID = jsonMessage.arg2;
                         string channelName = jsonMessage.channelName;
@@ -1760,31 +1782,6 @@ namespace BepinControl
                 TextMeshProUGUI component = __instance.transform.Find("CashRegisterCanvas/Container/MoneyToReturn").GetComponent<TextMeshProUGUI>();
                 component.color = Color.red;
                 component.text = "DO THE MATH!";
-            }
-        }
-
-
-        [HarmonyPatch(typeof(GameData), "UpdateSunPosition")]
-        public class Patch_UpdateSunPosition
-        {
-            [HarmonyPostfix]
-            public static void Postfix(GameData __instance)
-            {
-                // Find the main camera
-                Camera mainCamera = Camera.main;
-                if (mainCamera != null)
-                {
-                    // Position the sun and moon near the camera's location
-                    Vector3 cameraPosition = mainCamera.transform.position;
-
-                    // Adjust the positions of sun and moon relative to the camera
-                    // For example, placing them at some fixed distance from the camera
-                    float sunDistance = 20f; // Example distance from the camera for the sun
-                    float moonDistance = 20f; // Example distance from the camera for the moon
-
-                    __instance.sunLight.transform.position = cameraPosition + mainCamera.transform.forward * sunDistance;
-                    __instance.moonLight.transform.position = cameraPosition + mainCamera.transform.forward * moonDistance;
-                }
             }
         }
 
