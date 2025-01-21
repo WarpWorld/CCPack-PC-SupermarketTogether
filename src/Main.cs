@@ -37,7 +37,7 @@ namespace BepinControl
     {
         private const string modGUID = "WarpWorld.CrowdControl";
         private const string modName = "Crowd Control";
-        private const string modVersion = "1.1.4.0";
+        private const string modVersion = "1.1.5.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
         public static ManualLogSource mls;
@@ -1665,6 +1665,38 @@ namespace BepinControl
                     if (!thread.paused)
                         thread.effect.tick();
                 }
+            }
+        }
+
+
+
+        [HarmonyPatch(typeof(PlayMakerFSM))]
+        [HarmonyPatch("OnApplicationQuit")]
+        public class OnApplicationQuitPatch
+        {
+            static bool Prefix()
+            {
+
+                try
+                {
+                    if (ControlClient.Socket != null && ControlClient.Socket.Connected)
+                    {
+                        ControlClient.Socket.Shutdown(SocketShutdown.Both);
+                        ControlClient.Socket.Close();
+                        ControlClient.Socket.Dispose();
+                    }
+
+
+                    ControlClient clientInstance = new ControlClient();
+                    clientInstance.Stop();
+                    mls.LogInfo("ControlClient stopped successfully.");
+                }
+                catch (Exception ex)
+                {
+                    mls.LogError($"Error during application quit: {ex}");
+                }
+
+                return true;
             }
         }
 
