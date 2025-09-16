@@ -11,7 +11,7 @@ public class SupermarketTogether : SimpleTCPPack<SimpleTCPServerConnector>
 
     public override ushort Port => 51337;
 
-    [SuppressMessage("PackMetadata", "CC1007:Message Format Property")] //todo - check if this should be changed
+    [SuppressMessage("PackMetadata", "CC1008:Message Format Property")] //todo - check if this should be changed
     public override ISimpleTCPPack.MessageFormatType MessageFormat => ISimpleTCPPack.MessageFormatType.CrowdControlLegacy;
 
     public SupermarketTogether(UserRecord player, Func<CrowdControlBlock, bool> responseHandler, Action<object> statusUpdateHandler) : base(player, responseHandler, statusUpdateHandler) { }
