@@ -584,7 +584,7 @@ namespace BepinControl
 
                 TestMod.ActionQueue.Enqueue(() =>
                 {
-                    if (req.targets != null)
+                    if (req.targets != null && req.targets.Length > 0 && req.targets[0] != null)
                     {
                         if (req.targets[0].service == "twitch")
                         {
@@ -683,7 +683,7 @@ namespace BepinControl
 
                 TestMod.ActionQueue.Enqueue(() =>
                 {
-                    if (req.targets != null)
+                    if (req.targets != null && req.targets.Length > 0 && req.targets[0] != null)
                     {
                         if (req.targets[0].service == "twitch")
                         {
