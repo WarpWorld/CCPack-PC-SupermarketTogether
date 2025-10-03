@@ -37,7 +37,7 @@ namespace BepinControl
     {
         private const string modGUID = "WarpWorld.CrowdControl";
         private const string modName = "Crowd Control";
-        private const string modVersion = "1.1.5.0";
+        private const string modVersion = "1.1.6.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
         public static ManualLogSource mls;
@@ -1099,13 +1099,13 @@ namespace BepinControl
                     string _twitchChannel = jsonMessage.arg2;
                     requestID = jsonMessage.requestID;
 
-                    if (customerName.Length >= 1)
+                    if (customerName != null && customerName.Length >= 1)
                     {
 
                         if (!isHost) return;
 
 
-                        if (_twitchChannel.Length >= 1 && isTwitchChatAllowed)
+                        if (_twitchChannel != null && _twitchChannel.Length >= 1 && isTwitchChatAllowed)
                         {
                             //set whatever the last channel we get here, just incase we're not connected yet, we use that for the connection
                             twitchChannel = _twitchChannel;
@@ -1207,13 +1207,13 @@ namespace BepinControl
                     _twitchChannel = jsonMessage.arg2;
                     requestID = jsonMessage.requestID;
 
-                    if (customerName.Length >= 1)
+                    if (customerName != null && customerName.Length >= 1)
                     {
 
                         if (!isHost) return;
 
 
-                        if (_twitchChannel.Length >= 1 && isTwitchChatAllowed)
+                        if (_twitchChannel != null && _twitchChannel.Length >= 1 && isTwitchChatAllowed)
                         {
                             //set whatever the last channel we get here, just incase we're not connected yet, we use that for the connection
                             twitchChannel = _twitchChannel;
@@ -1397,13 +1397,13 @@ namespace BepinControl
                         {
                             if (!int.TryParse(jsonMessage.requestID.ToString(), out int msgID))
                             {
-                                mls.LogWarning($"Invalid message ID: {jsonMessage.arg1}");
+                                mls.LogWarning($"Invalid message ID: {jsonMessage.arg1 ?? "null"}");
                                 break;
                             }
 
                             if (!Enum.TryParse(jsonMessage.response, out CrowdResponse.Status status))
                             {
-                                mls.LogWarning($"Invalid status: {jsonMessage.arg2}");
+                                mls.LogWarning($"Invalid status: {jsonMessage.arg2 ?? "null"}");
                                 break;
                             }
 
@@ -1497,9 +1497,12 @@ namespace BepinControl
                         string customerNetID = jsonMessage.arg2;
                         string channelName = jsonMessage.channelName;
 
-                        AddOrUpdateSpawnedObjects(customerNetID, customerName);
+                        if (customerName != null && customerNetID != null)
+                        {
+                            AddOrUpdateSpawnedObjects(customerNetID, customerName);
+                        }
 
-                        if (spawnedObjects.TryGetValue(customerNetID.ToString(), out string foundCustomerName))
+                        if (customerNetID != null && spawnedObjects.TryGetValue(customerNetID.ToString(), out string foundCustomerName))
                         {
 
                             if (uint.TryParse(customerNetID, out uint netID))

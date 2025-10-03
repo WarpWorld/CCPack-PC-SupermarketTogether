@@ -23,6 +23,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
@@ -47,6 +48,8 @@ namespace BepinControl
         public static Socket Socket { get; set; }
 
         public bool inGame = true;
+        
+        private bool m_hasLoggedNoProcessFound = false;
 
         public ControlClient()
         {
@@ -231,11 +234,81 @@ namespace BepinControl
 
         public bool IsRunning() => Running;
 
+        /// <summary>
+        /// Checks if any CrowdControl process is running.
+        /// Looks for processes with names containing "crowdcontrol" (case-insensitive).
+        /// Handles cases where processes might be running with different privilege levels.
+        /// </summary>
+        /// <returns>True if a CrowdControl process is found, false otherwise.</returns>
+        private static bool IsCrowdControlProcessRunning()
+        {
+            try
+            {
+                var processes = Process.GetProcesses();
+                int accessibleProcesses = 0;
+                int inaccessibleProcesses = 0;
+                
+                foreach (var process in processes)
+                {
+                    try
+                    {
+                        if (process.ProcessName.IndexOf("crowdcontrol", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            TestMod.mls.LogInfo($"Found CrowdControl process: {process.ProcessName} (PID: {process.Id})");
+                            return true;
+                        }
+                        accessibleProcesses++;
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // Process is running with different privileges (e.g., admin vs regular user)
+                        inaccessibleProcesses++;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Other access issues
+                        TestMod.mls.LogInfo($"Could not access process: {ex.Message}");
+                        inaccessibleProcesses++;
+                    }
+                }
+                
+                // If we have inaccessible processes, it's possible CrowdControl is running with different privileges
+                if (inaccessibleProcesses > 0)
+                {
+                    TestMod.mls.LogInfo($"Found {inaccessibleProcesses} inaccessible processes (possibly running with different privileges). Attempting connection anyway.");
+                    // This handles the case where CrowdControl is running as admin but game is not
+                    return true;
+                }
+                
+                return false;
+            }
+            catch (Exception ex)
+            {
+                TestMod.mls.LogError($"Error checking for CrowdControl processes: {ex.Message}");
+                // If we can't check processes at all, assume CrowdControl might be running and attempt connection
+                return true;
+            }
+        }
+
         public void NetworkLoop()
         {
             Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
             while (Running)
             {
+                // Check if CrowdControl process is running before attempting to connect
+                if (!IsCrowdControlProcessRunning())
+                {
+                    if (!m_hasLoggedNoProcessFound)
+                    {
+                        TestMod.mls.LogInfo("No CrowdControl process found, skipping connection attempt");
+                        m_hasLoggedNoProcessFound = true;
+                    }
+                    Thread.Sleep(5000); // Wait longer when no process is found
+                    continue;
+                }
+                
+                // Reset the flag when we find a process (in case it was lost and found again)
+                m_hasLoggedNoProcessFound = false;
 
                 TestMod.mls.LogInfo("Attempting to connect to Crowd Control");
 
@@ -255,7 +328,7 @@ namespace BepinControl
                     TestMod.mls.LogInfo("Failed to connect to Crowd Control");
                 }
 
-                Thread.Sleep(10000);
+                Thread.Sleep(2000); // Reduced from 10000 to 2000 for faster reconnection when process is found
             }
         }
 
