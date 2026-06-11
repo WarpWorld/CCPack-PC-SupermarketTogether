@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using ConnectorLib.SimpleTCP;
 using CrowdControl.Common;
 using ConnectorType = CrowdControl.Common.ConnectorType;
@@ -15,6 +15,8 @@ public class SupermarketTogether : SimpleTCPPack<SimpleTCPServerConnector>
     public override ISimpleTCPPack.MessageFormatType MessageFormat => ISimpleTCPPack.MessageFormatType.CrowdControlLegacy;
 
     public SupermarketTogether(UserRecord player, Func<CrowdControlBlock, bool> responseHandler, Action<object> statusUpdateHandler) : base(player, responseHandler, statusUpdateHandler) { }
+    protected override SITimeSpan GameStateCheckInterval { get; } = 0.5f;
+
 
     public override Game Game { get; } = new("Supermarket Together", "SupermarketTogether", "PC", ConnectorType.SimpleTCPServerConnector);
 

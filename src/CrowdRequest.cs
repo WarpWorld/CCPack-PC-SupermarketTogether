@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
@@ -84,6 +84,11 @@ namespace BepinControl
         public bool IsKeepAlive()
         {
             return id == 0 && type == "255";
+        }
+
+        public bool IsGameState()
+        {
+            return type == "253";
         }
 
         public class Target
