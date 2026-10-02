@@ -1,5 +1,13 @@
 # Supermarket Together
 
+## Pack metadata
+
+- **Game:** Supermarket Together
+- **Crowd Control game ID:** `SupermarketTogether`
+- **Connector:** `SimpleTCPServerConnector`
+- **Endpoint:** `127.0.0.1:51337`
+- **Mod framework:** BepInEx
+
 This repository contains the Crowd Control desktop pack and the source for a
 BepInEx plugin. It does **not** include a packaged game-side release; `src` is
 a development project rather than a drop-in mod folder.
