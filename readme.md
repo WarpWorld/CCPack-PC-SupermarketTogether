@@ -1,23 +1,42 @@
-# Crowd Control - Supermarket Together
+# Supermarket Together
 
-Crowd Control is an application that allows live streamers to enhance their gaming broadcasts by enabling real-time interaction between viewers and the game being played. Through Crowd Control, viewers can directly influence the gameplay experience, creating a dynamic and engaging environment that brings the audience closer to the action.
+This repository contains the Crowd Control desktop pack and the source for a
+BepInEx plugin. It does **not** include a packaged game-side release; `src` is
+a development project rather than a drop-in mod folder.
 
-Crowd Control supports multiple platforms, such as Twitch, YouTube, Discord and more.
+## Requirements
 
-# Getting Started
+- Supermarket Together.
+- BepInEx for the game.
+- Crowd Control with the **Supermarket Together** pack selected.
+- For a local build, the game's managed assemblies and the plugin dependencies
+  referenced by `src\BepinExExample.csproj`.
 
-To get started using this project you will need to check the ``readme.md`` in the src folder.
+## Setup
 
-You can load the ``SupermarketTogether.cs`` in our SDK which can be found on our [Developer Page](https://developer.crowdcontrol.live/sdk/).
+For a prebuilt plugin, use the release/distribution intended for this pack. If
+building locally:
 
-Follow instructions on that page to learn how to add effects to your CS file and how to activate them.
+1. Update the project references in `src\BepinExExample.csproj` so they point
+   to the local game and BepInEx assemblies.
+2. Build the `BepinExExample` project.
+3. Install the output `CrowdControl.dll` and its required assets/dependencies
+   under the game's `BepInEx\plugins\CrowdControl` directory.
+4. Start Crowd Control, select Supermarket Together, then launch the game.
 
-# Notes
+## Connection behavior
 
-Keep in mind updating your local CS file and mod will not make these effects live on the Crowd Control Interact/Twitch extension. If you add new effects and wish for them to get added to the existing pack on our service you will need to reach out in the #cc-developer channel in our [Discord](https://warp.world/discord).
+The BepInEx plugin connects to Crowd Control at `127.0.0.1:51337`. The source
+checks for the Crowd Control process and retries its local TCP connection. The
+host processes game actions; the plugin also performs mod-version checks for
+connected players.
 
+## Troubleshooting
 
-## Links
-[Crowd Control](https://crowdcontrol.live)
-
-[Developer Page](https://developer.crowdcontrol.live/)
+- **The project will not build:** replace the machine-specific reference paths
+  in the project file with paths to your Supermarket Together installation and
+  required BepInEx dependencies.
+- **No connection:** start the desktop app first and confirm that no firewall
+  or other process blocks local port `51337`.
+- **Multiplayer actions do not apply:** run Crowd Control on the host and make
+  sure connected players use matching plugin versions.
