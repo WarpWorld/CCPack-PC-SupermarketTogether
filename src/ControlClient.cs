@@ -1,4 +1,4 @@
-﻿/*
+/*
  * ControlValley
  * Stardew Valley Support for Twitch Crowd Control
  * Copyright (C) 2021 TerribleTable
@@ -184,6 +184,52 @@ namespace BepinControl
         }
 
 
+        private bool validatedProducts = false;
+
+        /// <summary>
+        /// Once per session, once the game's product database is loaded: verify every
+        /// give_* effect's product ID against ProductListing.productsData, log the full
+        /// valid ID list, and hide effects whose item no longer exists in the current
+        /// game version (stale IDs spawn nothing while still reporting success).
+        /// Runs on the main thread from the PlayerNetwork.Update harmony patch.
+        /// </summary>
+        public void ValidateProductEffects()
+        {
+            if (validatedProducts) return;
+            try
+            {
+                ProductListing pl = ProductListing.Instance;
+                if (pl == null || pl.productsData == null || pl.productsData.Length == 0) return; // DB not loaded yet
+
+                List<int> validIds = new List<int>();
+                foreach (var product in pl.productsData)
+                {
+                    validIds.Add(product.productID);
+                }
+
+                TestMod.mls.LogInfo($"[CC] product DB loaded: {pl.productsData.Length} products. Valid IDs: {string.Join(" ", validIds)}");
+
+                foreach (string code in Delegate.Keys)
+                {
+                    if (!code.StartsWith("give_")) continue;
+                    if (!int.TryParse(code.Substring(5), out int id)) continue;
+                    if (validIds.Contains(id)) continue;
+
+                    TestMod.mls.LogWarning($"[CC] {code}: product ID {id} not in product DB - hiding effect (update the pack's item list)");
+                    if (Socket != null && Socket.Connected)
+                    {
+                        HideEffect(code);
+                    }
+                }
+
+                validatedProducts = true;
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogWarning($"[CC] product validation failed: {e}");
+            }
+        }
+
         private void ClientLoop()
         {
 
@@ -261,6 +307,11 @@ namespace BepinControl
                     {
                         if (process.ProcessName.IndexOf("crowdcontrol", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
+                            if (process.ProcessName.IndexOf("BuildTool", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                // The pack builder is not the Crowd Control app - don't let it trigger connections.
+                                continue;
+                            }
                             TestMod.mls.LogInfo($"Found CrowdControl process: {process.ProcessName} (PID: {process.Id})");
                             return true;
                         }
@@ -331,7 +382,7 @@ namespace BepinControl
                 }
                 catch (Exception e)
                 {
-                    TestMod.mls.LogInfo(e.GetType().Name);
+                    TestMod.mls.LogInfo(e.ToString());
                     TestMod.mls.LogInfo("Failed to connect to Crowd Control");
                 }
 
@@ -375,10 +426,10 @@ namespace BepinControl
                         new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, $"Request error for '{code}'").Send(Socket);
                     }
                 }
-                catch (Exception)
+                catch (Exception e)
                 {
-                    TestMod.mls.LogInfo("Disconnected from Crowd Control");
-                    Socket.Close();
+                    TestMod.mls.LogInfo($"Disconnected from Crowd Control: {e.GetType().Name}: {e.Message}");
+                    try { Socket?.Close(); } catch { }
                 }
             }
         }

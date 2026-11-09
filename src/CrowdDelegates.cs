@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using HutongGames.PlayMaker.Actions;
 using J4F;
 using Mirror;
@@ -285,82 +285,148 @@ namespace BepinControl
             return new CrowdResponse(req.GetReqID(), status, message);
         }
 
-        public static CrowdResponse GiveItem(ControlClient client, CrowdRequest req)
+        private static bool TryParseGiveCode(CrowdRequest req, out int give, out CrowdResponse error)
         {
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            ManagerBlackboard NPC = GameObject.FindFirstObjectByType<ManagerBlackboard>();
-            int give = 0;
+            give = 0;
+            error = null;
             string[] enteredText = req.code.Split('_');
-            if (enteredText.Length == 2)
+            if (enteredText.Length != 2 || !int.TryParse(enteredText[1], out give))
             {
-                try
-                {
-                    give = int.Parse(enteredText[1]);
-                }
-                catch
-                {
+                error = new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Invalid item code");
+                return false;
+            }
+            return true;
+        }
 
-                }
-            }
-            else
-            {
-                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE);
-            }
+        private static bool IsKnownProduct(int productID)
+        {
             try
             {
-                TestMod.ActionQueue.Enqueue(() =>
+                ProductListing pl = ProductListing.Instance;
+                if (pl == null || pl.productsData == null || pl.productsData.Length == 0)
                 {
-                    NPC.CmdSpawnBoxFromPlayer(NPC.merchandiseSpawnpoint.transform.position, give, 32, 0f);
-                    TestMod.SendHudMessage($"{req.viewer} just spawned some inventory!", "green");
-
-                });
+                    return true; // product DB not loaded yet - allow, the queued action still validates and logs
+                }
+                for (int i = 0; i < pl.productsData.Length; i++)
+                {
+                    if (pl.productsData[i].productID == productID)
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
             catch (Exception e)
             {
-                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
-                status = CrowdResponse.Status.STATUS_RETRY;
+                TestMod.mls.LogWarning($"[CC] product validation error for ID {productID}: {e.Message}");
+                return true; // fail open; the queued spawn still logs its own result
+            }
+        }
+
+        // The game's server silently drops CmdSpawnBoxFromPlayer calls whose count exceeds the
+        // product's maxItemsPerBox (added in a 2025/2026 game update). Clamp to a full box.
+        private static int GetSpawnCount(int productID)
+        {
+            int count = 32;
+            try
+            {
+                ProductListing pl = ProductListing.Instance;
+                if (pl != null && pl.productsData != null && productID >= 0 && productID < pl.productsData.Length)
+                {
+                    int max = pl.productsData[productID].maxItemsPerBox;
+                    count = Math.Max(1, Math.Min(count, max));
+                }
+            }
+            catch (Exception e)
+            {
+                TestMod.mls.LogWarning($"[CC] could not read maxItemsPerBox for product {productID}: {e.Message}");
+            }
+            return count;
+        }
+
+        public static CrowdResponse GiveItem(ControlClient client, CrowdRequest req)
+        {
+            if (!TryParseGiveCode(req, out int give, out CrowdResponse parseError))
+            {
+                return parseError;
             }
 
-            return new CrowdResponse(req.GetReqID(), status, message);
+            if (!TestMod.isHost)
+            {
+                TestMod.mls.LogWarning($"[CC] {req.code}: rejected, local player is not the host");
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Only the host can spawn items");
+            }
+
+            if (!IsKnownProduct(give))
+            {
+                TestMod.mls.LogWarning($"[CC] {req.code}: product ID {give} not found in ProductListing (game updated?)");
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "This item no longer exists in the current game version");
+            }
+
+            TestMod.mls.LogInfo($"[CC] {req.code}: queuing box spawn at merchandise spawnpoint");
+            TestMod.ActionQueue.Enqueue(() =>
+            {
+                try
+                {
+                    ManagerBlackboard mb = GameObject.FindFirstObjectByType<ManagerBlackboard>();
+                    if (mb == null || mb.merchandiseSpawnpoint == null)
+                    {
+                        TestMod.mls.LogWarning($"[CC] {req.code}: ManagerBlackboard/merchandiseSpawnpoint not found - no active store session?");
+                        return;
+                    }
+                    mb.CmdSpawnBoxFromPlayer(mb.merchandiseSpawnpoint.transform.position, give, GetSpawnCount(give), 0f);
+                    TestMod.mls.LogInfo($"[CC] {req.code}: CmdSpawnBoxFromPlayer sent (product {give}, count {GetSpawnCount(give)})");
+                    TestMod.SendHudMessage($"{req.viewer} just spawned some inventory!", "green");
+                }
+                catch (Exception e)
+                {
+                    TestMod.mls.LogError($"[CC] {req.code} spawn failed: {e}");
+                }
+            });
+
+            return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_SUCCESS);
         }
         public static CrowdResponse GiveItemToPlayer(ControlClient client, CrowdRequest req)
         {
+            if (!TryParseGiveCode(req, out int give, out CrowdResponse parseError))
+            {
+                return parseError;
+            }
 
-            CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
-            string message = "";
-            PlayerObjectController playerRef = LobbyController.FindFirstObjectByType<LobbyController>().LocalplayerController;
-            ManagerBlackboard MB = GameObject.FindFirstObjectByType<ManagerBlackboard>();
-            int give = 0;
-            string[] enteredText = req.code.Split('_');
-            if (enteredText.Length == 2)
+            if (!TestMod.isHost)
+            {
+                TestMod.mls.LogWarning($"[CC] {req.code}: rejected, local player is not the host");
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "Only the host can spawn items");
+            }
+
+            if (!IsKnownProduct(give))
+            {
+                TestMod.mls.LogWarning($"[CC] {req.code}: product ID {give} not found in ProductListing (game updated?)");
+                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE, "This item no longer exists in the current game version");
+            }
+
+            TestMod.mls.LogInfo($"[CC] {req.code}: queuing box spawn at player position");
+            TestMod.ActionQueue.Enqueue(() =>
             {
                 try
                 {
-                    give = int.Parse(enteredText[1]);
+                    PlayerObjectController playerRef = LobbyController.FindFirstObjectByType<LobbyController>()?.LocalplayerController;
+                    ManagerBlackboard mb = GameObject.FindFirstObjectByType<ManagerBlackboard>();
+                    if (playerRef == null || mb == null)
+                    {
+                        TestMod.mls.LogWarning($"[CC] {req.code}: player or ManagerBlackboard not found - no active store session?");
+                        return;
+                    }
+                    mb.CmdSpawnBoxFromPlayer(playerRef.transform.position, give, GetSpawnCount(give), 0f);
+                    TestMod.mls.LogInfo($"[CC] {req.code}: CmdSpawnBoxFromPlayer sent (product {give}, count {GetSpawnCount(give)})");
                 }
-                catch
+                catch (Exception e)
                 {
+                    TestMod.mls.LogError($"[CC] {req.code} spawn failed: {e}");
+                }
+            });
 
-                }
-            }
-            else
-            {
-                return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_FAILURE);
-            }
-            try
-            {
-                TestMod.ActionQueue.Enqueue(() =>
-                {
-                    MB.CmdSpawnBoxFromPlayer(playerRef.transform.position, give, 32, 0f);
-                });
-            }
-            catch (Exception e)
-            {
-                TestMod.mls.LogInfo($"Crowd Control Error: {e.ToString()}");
-                status = CrowdResponse.Status.STATUS_RETRY;
-            }
-            return new CrowdResponse(req.GetReqID(), status, message);
+            return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_SUCCESS);
         }
         public static CrowdResponse OpenSuper(ControlClient client, CrowdRequest req)
         {

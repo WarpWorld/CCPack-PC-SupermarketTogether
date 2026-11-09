@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -38,14 +38,14 @@
     </Reference>
     <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>D:\SteamLibrary\steamapps\common\Supermarket Together\Supermarket Together_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>resources\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx">
       <HintPath>resources\BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="HypeTrain, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Users\jakub\AppData\Roaming\CrowdControl-Apps\Mods\SupermarketTogether\BepInEx\plugins\CrowdControl\HypeTrain.dll</HintPath>
+      <HintPath>resources\HypeTrain.dll</HintPath>
     </Reference>
     <Reference Include="Mirror">
       <HintPath>resources\Mirror.dll</HintPath>
@@ -80,7 +80,7 @@
       <HintPath>resources\UnityEngine.AIModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AssetBundleModule">
-      <HintPath>D:\SteamLibrary\steamapps\common\Supermarket Together\Supermarket Together_Data\Managed\UnityEngine.AssetBundleModule.dll</HintPath>
+      <HintPath>resources\UnityEngine.AssetBundleModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>resources\UnityEngine.AudioModule.dll</HintPath>
@@ -124,13 +124,4 @@
     <Folder Include="resources\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PostBuildEvent>xcopy /y "F:\CCPack-PC-SupermarketTogether\src\bin\Debug\CrowdControl.dll" "C:\Users\jakub\AppData\Roaming\CrowdControl-Apps\Mods\SupermarketTogether\BepInEx\plugins\CrowdControl"
-echo xcopy /y "F:\CCPack-PC-SupermarketTogether\src\bin\Debug\CrowdControl.dll" "X:\SupermarketTogether\BepInEx\plugins\CrowdControl"
-</PostBuildEvent>
-  </PropertyGroup>
 </Project>

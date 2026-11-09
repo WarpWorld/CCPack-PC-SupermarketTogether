@@ -37,7 +37,7 @@ namespace BepinControl
     {
         private const string modGUID = "WarpWorld.CrowdControl";
         private const string modName = "Crowd Control";
-        private const string modVersion = "1.1.6.0";
+        private const string modVersion = "1.1.9.0";
 
         private readonly Harmony harmony = new Harmony(modGUID);
         public static ManualLogSource mls;
@@ -1658,8 +1658,19 @@ namespace BepinControl
             while (ActionQueue.Count > 0)
             {
                 Action action = ActionQueue.Dequeue();
-                action.Invoke();
+                try
+                {
+                    action.Invoke();
+                }
+                catch (Exception e)
+                {
+                    TestMod.mls.LogError($"[CC] queued action failed: {e}");
+                }
             }
+
+            // Once the game's product DB is loaded, validate give_* effect IDs against it
+            // (hides items removed by game updates; logs the valid ID list for pack upkeep).
+            Instance?.client?.ValidateProductEffects();
 
             lock (TimedThread.threads)
             {
@@ -1677,6 +1688,7 @@ namespace BepinControl
         [HarmonyPatch("OnApplicationQuit")]
         public class OnApplicationQuitPatch
         {
+            private static bool quitLogEmitted = false;
             static bool Prefix()
             {
 
@@ -1692,7 +1704,12 @@ namespace BepinControl
 
                     ControlClient clientInstance = new ControlClient();
                     clientInstance.Stop();
-                    mls.LogInfo("ControlClient stopped successfully.");
+                    // This patch runs once per PlayMakerFSM in the scene - only log the first time.
+                    if (!quitLogEmitted)
+                    {
+                        quitLogEmitted = true;
+                        mls.LogInfo("ControlClient stopped successfully.");
+                    }
                 }
                 catch (Exception ex)
                 {
