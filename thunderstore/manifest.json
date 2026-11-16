@@ -1,0 +1,7 @@
+{
+    "name": "CrowdControl_SupermarketTogether",
+    "version_number": "1.1.9",
+    "website_url": "https://crowdcontrol.live/",
+    "description": "Crowd Control lets your livestream viewers interact with your game in real-time on Twitch, YouTube, TikTok, and more! Viewers can trigger effects using tips, bits, or channel points, making for a fun and interactive experience.",
+    "dependencies": []
+}
