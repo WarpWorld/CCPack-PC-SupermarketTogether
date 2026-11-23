@@ -117,6 +117,15 @@ namespace BepinControl
             };
         }
 
+        public static volatile bool localPlayerPresent = false;
+
+        /// <summary>Main thread only.</summary>
+        public static void UpdateLocalPlayerPresent()
+        {
+            try { localPlayerPresent = GameObject.Find("LocalGamePlayer") != null; }
+            catch { localPlayerPresent = false; }
+        }
+
         public bool isReady()
         {
             try
@@ -124,8 +133,9 @@ namespace BepinControl
                 //make sure the game is in focus otherwise don't let effects trigger
                 if (!TestMod.isFocused) return false;
                 if (!TestMod.validVersion && !TestMod.isHost) return false;
-                var player = GameObject.Find("LocalGamePlayer");
-                if (player == null) return false;
+                // GameObject.Find is main-thread only; isReady() runs on the timer,
+                // request and network threads, so use the value cached in the main-thread update.
+                if (!localPlayerPresent) return false;
             }
             catch (Exception e)
             {
@@ -259,6 +269,10 @@ namespace BepinControl
             {
                 TestMod.mls.LogInfo($"Disconnected from Crowd Control. {e.ToString()}");
                 Socket.Close();
+            }
+            finally
+            {
+                timer.Dispose();
             }
         }
 

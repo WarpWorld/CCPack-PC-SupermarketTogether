@@ -265,7 +265,6 @@ namespace BepinControl
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
             int item = UnityEngine.Random.Range(0, 190);
-            NPC_Info NPC = GameObject.FindFirstObjectByType<NPC_Info>();
             GameData gd = GameData.Instance;
             float newPrice = UnityEngine.Random.Range(0, 30);
             if (!gd.isSupermarketOpen) return new CrowdResponse(req.GetReqID(), CrowdResponse.Status.STATUS_RETRY, "Supermarket is Closed");
@@ -274,7 +273,9 @@ namespace BepinControl
                 {
                     TestMod.ActionQueue.Enqueue(() =>
                     {
-                        NPC.ComplainAboutFilth();
+                        // FindFirstObjectByType is main-thread only
+                        NPC_Info NPC = GameObject.FindFirstObjectByType<NPC_Info>();
+                        if (NPC != null) NPC.ComplainAboutFilth();
                     });
                 }
                 catch (Exception e)
@@ -485,7 +486,6 @@ namespace BepinControl
         {
             CrowdResponse.Status status = CrowdResponse.Status.STATUS_SUCCESS;
             string message = "";
-            NetworkSpawner NS = NetworkSpawner.FindFirstObjectByType<NetworkSpawner>();
             string[] enteredText = req.code.Split('_');
             int amount = 0;
             string newName = null;
@@ -509,7 +509,9 @@ namespace BepinControl
   
                 TestMod.ActionQueue.Enqueue(() =>
                 {
-                    NS.CmdSetSupermarketText(newName);
+                    // FindFirstObjectByType is main-thread only; the request thread must not call it
+                    NetworkSpawner NS = NetworkSpawner.FindFirstObjectByType<NetworkSpawner>();
+                    if (NS != null) NS.CmdSetSupermarketText(newName);
 
 
 

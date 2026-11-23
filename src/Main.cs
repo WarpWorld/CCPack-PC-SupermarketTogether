@@ -1672,6 +1672,8 @@ namespace BepinControl
             // (hides items removed by game updates; logs the valid ID list for pack upkeep).
             Instance?.client?.ValidateProductEffects();
 
+            ControlClient.UpdateLocalPlayerPresent();
+
             lock (TimedThread.threads)
             {
                 foreach (var thread in TimedThread.threads)
